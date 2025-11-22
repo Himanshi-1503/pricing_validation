@@ -13,6 +13,9 @@ RUN mvn dependency:go-offline -B
 # Copy source code
 COPY src ./src
 
+# Copy sample data folder
+COPY sample_data ./sample_data
+
 # Build the application
 RUN mvn clean package -DskipTests
 
@@ -23,6 +26,9 @@ WORKDIR /app
 
 # Copy the built JAR from build stage
 COPY --from=build /app/target/pricing-validation-1.0.0.jar app.jar
+
+# Copy sample_data to final image
+COPY --from=build /app/sample_data ./sample_data
 
 # Expose port (Render will set PORT env variable)
 EXPOSE 8080
