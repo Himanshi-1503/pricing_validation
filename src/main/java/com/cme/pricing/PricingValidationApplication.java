@@ -20,6 +20,7 @@ public class PricingValidationApplication {
             System.out.println("Pricing Data Validation & Reporting Utility is running...");
             System.out.println("API endpoints available at: http://localhost:8080");
             System.out.println("\nTo use CLI mode, run with: java -jar target/pricing-validation-1.0.0.jar --cli");
+            System.out.println("Or: mvn spring-boot:run -Dspring-boot.run.arguments=--cli");
         }
     }
 }

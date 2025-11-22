@@ -1,6 +1,6 @@
 # Pricing Data Validation & Reporting Utility
 
-A Java Spring Boot REST API application for validating pricing data from CSV files. Validates records, identifies errors, and provides HTTP endpoints for data management operations.
+A Java Spring Boot application for validating pricing data from CSV files. Validates records, identifies errors, and provides both REST API and CLI interfaces for data management.
 
 ## Features
 
@@ -8,6 +8,7 @@ A Java Spring Boot REST API application for validating pricing data from CSV fil
 - Identifies missing values, duplicates, and invalid formats
 - Generates detailed validation reports
 - REST API for programmatic access
+- Interactive CLI for local operations
 - Handles duplicate records with index-based selection
 
 ## Quick Start
@@ -22,8 +23,11 @@ A Java Spring Boot REST API application for validating pricing data from CSV fil
 **Development mode** (recommended for testing):
 
 ```bash
-# Run directly from Maven (no build needed)
+# Run as REST API (default)
 mvn spring-boot:run
+
+# Run in CLI mode
+mvn spring-boot:run -Dspring-boot.run.arguments=--cli
 ```
 
 **Production mode** (build JAR first):
@@ -32,17 +36,42 @@ mvn spring-boot:run
 # Build the project
 mvn clean package
 
-# Run the application
+# Run as REST API (default)
 java -jar target/pricing-validation-1.0.0.jar
+
+# Run in CLI mode
+java -jar target/pricing-validation-1.0.0.jar --cli
 ```
 
 The API runs on `http://localhost:8080` by default.
 
 ## Usage
 
+### CLI Mode (Interactive Menu)
+
+Run the application in CLI mode for an interactive menu-driven interface:
+
+```bash
+# Development
+mvn spring-boot:run -Dspring-boot.run.arguments=--cli
+
+# Production
+java -jar target/pricing-validation-1.0.0.jar --cli
+```
+
+**Menu Options:**
+
+1. Load and validate CSV file
+2. View validation report
+3. View specific record
+4. Update record
+5. Delete record
+6. Generate text report file
+7. Exit
+
 ### REST API
 
-The application runs as a REST API, providing HTTP endpoints for all operations.
+The application runs as a REST API by default, providing HTTP endpoints for all operations.
 
 **Start the API server:**
 
@@ -217,12 +246,19 @@ This creates `target/pricing-validation-1.0.0.jar` - a standalone executable JAR
 1. **Sign up**: Go to [render.com](https://render.com) and sign up
 2. **Create new Web Service**: Click "New" → "Web Service"
 3. **Connect repository**: Link your GitHub repository
-4. **Configure**:
+4. **Configure** (using Docker since Java is not available):
+
    - **Name**: `pricing-validation` (or any name)
-   - **Environment**: `Java`
-   - **Build Command**: `mvn clean package -DskipTests`
-   - **Start Command**: `java -jar target/pricing-validation-1.0.0.jar`
+   - **Language**: Select **`Docker`** (Java/Maven not available in Render)
+   - **Branch**: `main`
+   - **Region**: Choose **Singapore (Asia Pacific)** - closest to India
+   - **Root Directory**: Leave empty
+   - **Build Command**: Leave empty (Docker will use Dockerfile automatically)
+   - **Start Command**: Leave empty (Docker will use Dockerfile automatically)
    - **Port**: Leave empty (Render automatically sets PORT environment variable)
+
+   ✅ **Dockerfile is already in your repository** - Render will automatically detect and use it!
+
 5. **Verify application.properties** (already configured):
    ```properties
    server.port=${PORT:8080}

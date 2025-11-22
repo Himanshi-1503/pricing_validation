@@ -205,7 +205,9 @@ public class PricingService {
     }
 
     /**
-     * Updates a pricing record
+     * Updates a pricing record by GUID (primary key)
+     * Since GUID is primary key, only one valid record should exist per GUID.
+     * This method updates the first occurrence found.
      */
     public boolean updateRecord(String instrumentGuid, PricingRecord updatedRecord) {
         Optional<PricingRecord> existing = getRecordByGuid(instrumentGuid);
@@ -221,17 +223,17 @@ public class PricingService {
             
             // Only update fields that are provided (non-null)
             if (updatedRecord.getPrice() != null) {
-                record.setPrice(updatedRecord.getPrice());
+            record.setPrice(updatedRecord.getPrice());
                 record.setOriginalPriceValue(null); // Clear invalid price value
             }
             if (updatedRecord.getExchange() != null) {
-                record.setExchange(updatedRecord.getExchange());
+            record.setExchange(updatedRecord.getExchange());
             }
             if (updatedRecord.getProductType() != null) {
-                record.setProductType(updatedRecord.getProductType());
+            record.setProductType(updatedRecord.getProductType());
             }
             if (updatedRecord.getTradeDate() != null) {
-                record.setTradeDate(updatedRecord.getTradeDate());
+            record.setTradeDate(updatedRecord.getTradeDate());
             }
             
             // Re-validate the updated record
@@ -299,24 +301,34 @@ public class PricingService {
     }
 
     /**
-     * Deletes a pricing record
+     * Deletes a pricing record by GUID (primary key)
+     * Since GUID is primary key, only one valid record should exist per GUID.
+     * This method deletes the first occurrence found.
      */
     public boolean deleteRecord(String instrumentGuid) {
-        boolean removed = records.removeIf(r -> r.getInstrumentGuid().equals(instrumentGuid));
-        
-        if (removed) {
-            // Regenerate report
-            currentReport = generateReport();
-            logger.info("Record {} deleted successfully", instrumentGuid);
-        } else {
-            logger.warn("Record {} not found for deletion", instrumentGuid);
+        // Find first record with this GUID (primary key should be unique)
+        for (int i = 0; i < records.size(); i++) {
+            PricingRecord record = records.get(i);
+            if (record.getInstrumentGuid() != null && record.getInstrumentGuid().equals(instrumentGuid)) {
+                records.remove(i);
+                // Regenerate report
+                currentReport = generateReport();
+                logger.info("Record {} (primary key) deleted successfully", instrumentGuid);
+                return true;
+            }
         }
         
-        return removed;
+        logger.warn("Record {} (primary key) not found for deletion", instrumentGuid);
+        return false;
     }
 
     /**
      * Corrects an invalid record by GUID
+     */
+    /**
+     * Corrects a pricing record by GUID (primary key)
+     * Since GUID is primary key, only one valid record should exist per GUID.
+     * This method corrects the first occurrence found.
      */
     public boolean correctRecord(String instrumentGuid, PricingRecord correction) {
         Optional<PricingRecord> existing = getRecordByGuid(instrumentGuid);
