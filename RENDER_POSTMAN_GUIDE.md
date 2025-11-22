@@ -7,13 +7,9 @@
 1. Go to [render.com](https://render.com) and log in
 2. Navigate to your **Dashboard**
 3. Click on your **Web Service** (pricing-validation or your app name)
-4. Copy the **URL** - it will look like:
+4. Copy the **URL**:
    ```
-   https://your-app-name.onrender.com
-   ```
-   or
-   ```
-   https://pricing-validation-xxxx.onrender.com
+   https://pricing-validation-iab5.onrender.com
    ```
 
 ### Step 2: Update Postman Requests
@@ -28,8 +24,8 @@
    - Name: `Render Production`
    - Add variable:
      - **Variable**: `base_url`
-     - **Initial Value**: `https://your-app-name.onrender.com`
-     - **Current Value**: `https://your-app-name.onrender.com`
+     - **Initial Value**: `https://pricing-validation-iab5.onrender.com`
+     - **Current Value**: `https://pricing-validation-iab5.onrender.com`
    - Click **Save**
 
 2. **Update All Requests:**
@@ -54,7 +50,7 @@
 1. In Postman, use **Find and Replace**:
    - Press `Ctrl+H` (Windows) or `Cmd+H` (Mac)
    - Find: `http://localhost:8080`
-   - Replace: `https://your-app-name.onrender.com`
+   - Replace: `https://pricing-validation-iab5.onrender.com`
    - Click **Replace All**
 
 ---
@@ -94,11 +90,11 @@ The Dockerfile already copies `sample_data` folder, so this path works.
 Test these endpoints in order:
 
 ### ✅ Step 1: Health Check
-- **GET** `https://your-app-name.onrender.com/api/pricing/`
+- **GET** `https://pricing-validation-iab5.onrender.com/api/pricing/`
 - **Expected**: Status 200, API information
 
 ### ✅ Step 2: Load Data
-- **POST** `https://your-app-name.onrender.com/api/pricing/load`
+- **POST** `https://pricing-validation-iab5.onrender.com/api/pricing/load`
 - **Body** (raw → JSON):
   ```json
   {
@@ -108,19 +104,19 @@ Test these endpoints in order:
 - **Expected**: Status 200, "Data loaded and validated successfully"
 
 ### ✅ Step 3: Get Report
-- **GET** `https://your-app-name.onrender.com/api/pricing/report`
+- **GET** `https://pricing-validation-iab5.onrender.com/api/pricing/report`
 - **Expected**: Status 200, validation report with summary
 
 ### ✅ Step 4: Get All Records
-- **GET** `https://your-app-name.onrender.com/api/pricing/records`
+- **GET** `https://pricing-validation-iab5.onrender.com/api/pricing/records`
 - **Expected**: Status 200, array of all records with indices
 
 ### ✅ Step 5: Get Specific Record
-- **GET** `https://your-app-name.onrender.com/api/pricing/records/1001`
+- **GET** `https://pricing-validation-iab5.onrender.com/api/pricing/records/1001`
 - **Expected**: Status 200, record details with index
 
 ### ✅ Step 6: Update Record
-- **PUT** `https://your-app-name.onrender.com/api/pricing/records/1001`
+- **PUT** `https://pricing-validation-iab5.onrender.com/api/pricing/records/1001`
 - **Body** (raw → JSON):
   ```json
   {
@@ -130,7 +126,7 @@ Test these endpoints in order:
 - **Expected**: Status 200, updated record with index
 
 ### ✅ Step 7: Generate Report File
-- **POST** `https://your-app-name.onrender.com/api/pricing/report/generate`
+- **POST** `https://pricing-validation-iab5.onrender.com/api/pricing/report/generate`
 - **Body** (raw → JSON):
   ```json
   {}
@@ -164,7 +160,7 @@ Test these endpoints in order:
 ### Request: Load Data on Render
 
 **Method**: POST  
-**URL**: `https://your-app-name.onrender.com/api/pricing/load`
+**URL**: `https://pricing-validation-iab5.onrender.com/api/pricing/load`
 
 **Headers**:
 ```
@@ -205,15 +201,15 @@ Content-Type: application/json
 
 ## 📝 Your Render URL
 
-Replace `your-app-name` with your actual Render app name:
+Your Render deployment URL:
 
 ```
-https://your-app-name.onrender.com
+https://pricing-validation-iab5.onrender.com
 ```
 
-**Example**:
+**Base API URL**:
 ```
-https://pricing-validation-abc123.onrender.com
+https://pricing-validation-iab5.onrender.com/api/pricing
 ```
 
 ---
