@@ -32,6 +32,17 @@ public class CSVParser {
         List<PricingRecord> records = new ArrayList<>();
 
         logger.info("Parsing CSV file: {}", filePath);
+        
+        // Handle relative paths - if path doesn't start with /, make it relative to working directory
+        java.io.File file = new java.io.File(filePath);
+        if (!file.isAbsolute() && !file.exists()) {
+            // Try with /app prefix (Docker working directory)
+            java.io.File dockerFile = new java.io.File("/app", filePath);
+            if (dockerFile.exists()) {
+                filePath = dockerFile.getAbsolutePath();
+                logger.info("Found file in Docker path: {}", filePath);
+            }
+        }
 
         try (CSVReader reader = new CSVReader(new FileReader(filePath))) {
             // Read header row
