@@ -30,7 +30,6 @@ logs/
 Thumbs.db
 
 # Generated reports
-validation_report.txt
 *.txt
 
 # Compiled classes

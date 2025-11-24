@@ -1,0 +1,125 @@
+===========================================
+
+Pricing Data Validation Report
+
+===========================================
+
+Total Records: 19
+
+Valid Records: 11
+
+Invalid Records: 8
+
+Duplicate Records: 0
+
+Missing Values: 4
+
+Error Breakdown:
+
+---------------------------
+
+Invalid Price Format: 2
+Missing instrument_guid: 2
+Missing trade_date: 1
+Missing product_type: 1
+Invalid exchange: 1
+Invalid product_type: 1
+
+---------------------------
+INVALID RECORDS DETAILS
+--------------------------------------------------------------------------------
+Instrument GUID: 1005
+  Trade Date:    2025-01-10
+  Price:         
+  Exchange:      COMEX
+  Product Type:  OPT
+  Error:         Invalid price format: INVALID
+
+Instrument GUID: 1011
+  Trade Date:    2025-01-10
+  Price:         320.0
+  Exchange:      INVALID
+  Product Type:  FUT
+  Error:         Invalid exchange: INVALID
+
+Instrument GUID: 1012
+  Trade Date:    2025-01-10
+  Price:         155.5
+  Exchange:      CME
+  Product Type:  INVALID
+  Error:         Invalid product type: INVALID
+
+Instrument GUID: 
+  Trade Date:    2025-01-10
+  Price:         200.0
+  Exchange:      CME
+  Product Type:  FUT
+  Error:         Missing instrument GUID (primary key required)
+
+Instrument GUID: 1014
+  Trade Date:    2025-01-10
+  Price:         175.25
+  Exchange:      NYMEX
+  Product Type:  
+  Error:         Missing product type
+
+Instrument GUID: 
+  Trade Date:    2025-01-10
+  Price:         250.0
+  Exchange:      COMEX
+  Product Type:  OPT
+  Error:         Missing instrument GUID (primary key required)
+
+Instrument GUID: 1017
+  Trade Date:    
+  Price:         400.0
+  Exchange:      CME
+  Product Type:  FUT
+  Error:         Missing trade date
+
+Instrument GUID: 1018
+  Trade Date:    2025-01-10
+  Price:         
+  Exchange:      NYMEX
+  Product Type:  OPT
+  Error:         Invalid price format: ABC123
+
+MISSING VALUES DETAILS
+--------------------------------------------------------------------------------
+Missing Instrument GUID Records:
+  - Trade Date: 2025-01-10, Price: 200.00, Exchange: CME, Product Type: FUT
+  - Trade Date: 2025-01-10, Price: 250.00, Exchange: COMEX, Product Type: OPT
+
+Missing Trade Date Records:
+  - GUID: 1017, Price: 400.00, Exchange: CME, Product Type: FUT
+
+Missing Product Type Records:
+  - GUID: 1014, Trade Date: 2025-01-10, Price: 175.25, Exchange: NYMEX
+
+ALL RECORDS
+--------------------------------------------------------------------------------
+Instrument GUID Trade Date   Price      Exchange Product Type Status  
+--------------------------------------------------------------------------------
+1001            2025-01-10   123.45     CME      FUT          VALID   
+1002            2025-01-10   222.10     NYMEX    OPT          VALID   
+1003            2025-01-10   532.00     CME      FUT          VALID   
+1004            2025-01-10   350.00     CBOT     FUT          VALID   
+1005            2025-01-10   INVALID    COMEX    OPT          INVALID 
+1006            2025-01-10   275.50     CME      OPT          VALID   
+1007            2025-01-10   450.75     NYMEX    FUT          VALID   
+1008            2025-01-10   180.25     CBOT     OPT          VALID   
+1009            2025-01-10   50.00      COMEX    FUT          VALID   
+1010            2025-01-10   150.00     CME      FUT          VALID   
+1011            2025-01-10   320.00     INVALID  FUT          INVALID 
+1012            2025-01-10   155.50     CME      INVALID      INVALID 
+                2025-01-10   200.00     CME      FUT          INVALID 
+1014            2025-01-10   175.25     NYMEX                 INVALID 
+1015            2025-01-10   300.00     CBOT     FUT          VALID   
+                2025-01-10   250.00     COMEX    OPT          INVALID 
+1017                         400.00     CME      FUT          INVALID 
+1018            2025-01-10   ABC123     NYMEX    OPT          INVALID 
+1019            2025-01-10   500.00     CBOT     FUT          VALID   
+
+================================================================================
+End of Report
+================================================================================
