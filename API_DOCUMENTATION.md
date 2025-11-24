@@ -2,19 +2,54 @@
 
 ## Pricing Data Validation & Reporting Utility - REST API
 
-Base URL: `http://localhost:8080/api/pricing`
+**Base URL:**
+
+- `https://pricing-validation-iab5.onrender.com/api/pricing`
 
 All endpoints return JSON responses.
 
 ---
 
-## 1. Load and Validate Data
+## 1. Get API Information
+
+Retrieves API information including available endpoints and application status.
+
+**Endpoint:** `GET /api/pricing/`
+
+**Response:**
+
+```json
+{
+  "application": "Pricing Data Validation & Reporting Utility",
+  "version": "1.0.0",
+  "status": "running",
+  "endpoints": {
+    "load": "POST /api/pricing/load",
+    "report": "GET /api/pricing/report",
+    "generateReport": "POST /api/pricing/report/generate",
+    "allRecords": "GET /api/pricing/records",
+    "getSpecificRecord": "GET /api/pricing/records/{instrumentGuid}",
+    "updateRecord": "PUT /api/pricing/records/{instrumentGuid}",
+    "deleteRecord": "DELETE /api/pricing/records/{instrumentGuid}",
+    "updateSpecificRecord": "POST /api/pricing/records/{instrumentGuid}/correct"
+  }
+}
+```
+
+**Status Codes:**
+
+- `200 OK`: API information retrieved successfully
+
+---
+
+## 2. Load and Validate Data
 
 Loads pricing data from a CSV file and validates all records.
 
 **Endpoint:** `POST /api/pricing/load`
 
 **Request Body:**
+
 ```json
 {
   "filePath": "sample_data/pricing_data.csv"
@@ -22,102 +57,125 @@ Loads pricing data from a CSV file and validates all records.
 ```
 
 **Parameters:**
+
 - `filePath` (string, required): Path to the CSV file relative to project root
 
 **Response:**
+
 ```json
 {
-  "totalRecords": 6,
-  "validRecords": 2,
-  "invalidRecords": 4,
+  "message": "Data loaded and validated successfully!",
+  "totalRecords": 21,
+  "validRecords": 11,
+  "invalidRecords": 10,
   "duplicateRecords": 1,
-  "missingPriceRecords": 1,
-  "invalidPriceFormatRecords": 1,
-  "allRecords": [
-    {
-      "instrumentGuid": "1001",
-      "tradeDate": "2025-01-10",
-      "price": 123.45,
-      "exchange": "CME",
-      "productType": "FUT",
-      "valid": true,
-      "validationError": null
-    },
-    ...
-  ],
-  "invalidRecordsList": [...],
-  "duplicateRecordsList": ["1004 - 2025-01-10"]
+  "missingValues": 6
 }
 ```
 
 **Status Codes:**
+
 - `200 OK`: Data loaded and validated successfully
 - `400 Bad Request`: Invalid file path or unsupported format
 - `500 Internal Server Error`: File read error or parsing failure
 
-**Example (curl):**
-```bash
-curl -X POST http://localhost:8080/api/pricing/load \
-  -H "Content-Type: application/json" \
-  -d '{"filePath":"sample_data/pricing_data.csv"}'
-```
-
 ---
 
-## 2. Get Validation Report
+## 3. Get Validation Report
 
 Retrieves the current validation report without regenerating it.
 
 **Endpoint:** `GET /api/pricing/report`
 
 **Response:**
-Same structure as the load endpoint response.
+
+```json
+{
+  "totalRecords": 21,
+  "validRecords": 11,
+  "invalidRecords": 10,
+  "duplicateRecords": 1,
+  "missingValues": 6,
+  "errorBreakdown": {
+    "Missing Price": 1,
+    "Invalid Price Format": 2,
+    "Missing instrument_guid": 2,
+    "Missing trade_date": 1,
+    "Missing exchange": 1,
+    "Missing product_type": 1,
+    "Invalid exchange": 1,
+    "Invalid product_type": 1,
+    "Duplicate Records": 1
+  },
+  "invalidRecordsList": [
+    {
+      "guid": "1003",
+      "tradeDate": "2025-01-10",
+      "price": "",
+      "exchange": "CME",
+      "productType": "FUT",
+      "error": "Missing price value"
+    }
+    // ... 9 more invalid records
+  ],
+  "duplicateRecordsList": [
+    {
+      "guid": "1004",
+      "tradeDate": "2025-01-10",
+      "price": 350.0,
+      "exchange": "CBOT",
+      "productType": "FUT",
+      "error": "Duplicate GUID (primary key violation)"
+    }
+  ],
+  "missingValuesDetails": {
+    "missingPrice": [
+      {
+        "guid": "1003",
+        "tradeDate": "2025-01-10",
+        "price": "",
+        "exchange": "CME",
+        "productType": "FUT",
+        "error": "Missing price value"
+      }
+    ]
+    // ... 5 more record
+  },
+  "allRecordsTable": [
+    {
+      "guid": "1001",
+      "date": "2025-01-10",
+      "price": 123.45,
+      "exchange": "CME",
+      "product": "FUT",
+      "status": "VALID"
+    },
+    {
+      "guid": "1002",
+      "date": "2025-01-10",
+      "price": 222.1,
+      "exchange": "NYMEX",
+      "product": "OPT",
+      "status": "VALID"
+    },
+    {
+      "guid": "1003",
+      "date": "2025-01-10",
+      "price": "",
+      "exchange": "CME",
+      "product": "FUT",
+      "status": "INVALID"
+    }
+    // ... 18 more records
+  ]
+}
+```
+
+**Note:** The response includes complete details for all records. Only a few examples are shown above for brevity.
 
 **Status Codes:**
+
 - `200 OK`: Report retrieved successfully
-
-**Example (curl):**
-```bash
-curl http://localhost:8080/api/pricing/report
-```
-
----
-
-## 3. Generate Text Report
-
-Generates a formatted text report and saves it to a file.
-
-**Endpoint:** `POST /api/pricing/report/generate`
-
-**Request Body:**
-```json
-{
-  "outputPath": "validation_report.txt"
-}
-```
-
-**Parameters:**
-- `outputPath` (string, optional): Path where the report will be saved. Default: "validation_report.txt"
-
-**Response:**
-```json
-{
-  "message": "Report generated successfully",
-  "outputPath": "validation_report.txt",
-  "report": "=== PRICING DATA VALIDATION REPORT ===\n..."
-}
-```
-
-**Status Codes:**
-- `200 OK`: Report generated successfully
-- `500 Internal Server Error`: File write error
-
-**Example (curl):**
-```bash
-curl -X POST http://localhost:8080/api/pricing/report/generate \
-  -H "Content-Type: application/json" \
-  -d '{"outputPath":"validation_report.txt"}'
-```
 
 ---
 
@@ -128,6 +186,7 @@ Retrieves all pricing records currently loaded in the system.
 **Endpoint:** `GET /api/pricing/records`
 
 **Response:**
+
 ```json
 [
   {
@@ -139,17 +198,13 @@ Retrieves all pricing records currently loaded in the system.
     "valid": true,
     "validationError": null
   },
-  ...
+  ...// All records
 ]
 ```
 
 **Status Codes:**
-- `200 OK`: Records retrieved successfully
 
-**Example (curl):**
-```bash
-curl http://localhost:8080/api/pricing/records
-```
+- `200 OK`: Records retrieved successfully
 
 ---
 
@@ -160,9 +215,11 @@ Retrieves a specific pricing record by instrument GUID.
 **Endpoint:** `GET /api/pricing/records/{instrumentGuid}`
 
 **Path Parameters:**
+
 - `instrumentGuid` (string, required): The instrument GUID to retrieve
 
-**Response (Success):**
+**Response (Success - Single Record):**
+
 ```json
 {
   "instrumentGuid": "1001",
@@ -175,7 +232,97 @@ Retrieves a specific pricing record by instrument GUID.
 }
 ```
 
+**Response (Multiple Records Found - Duplicates or Empty GUIDs):**
+
+When multiple records share the same GUID (duplicates) or when accessing empty GUIDs, the API returns a list with indices:
+
+```json
+{
+  "records": [
+    {
+      "index": 3,
+      "instrumentGuid": "1004",
+      "tradeDate": "2025-01-10",
+      "price": 350.0,
+      "exchange": "CBOT",
+      "productType": "FUT",
+      "status": "VALID",
+      "error": null
+    },
+    {
+      "index": 4,
+      "instrumentGuid": "1004",
+      "tradeDate": "2025-01-10",
+      "price": 350.0,
+      "exchange": "CBOT",
+      "productType": "FUT",
+      "status": "INVALID",
+      "error": "Duplicate GUID (primary key violation)"
+    }
+  ],
+  "count": 2,
+  "message": "Multiple records found with GUID: 1004",
+  "instruction": "Use GET /api/pricing/records/1004?index={index} to view a specific record"
+}
+
+//using indexes
+{
+    "index": 4,
+    "instrumentGuid": "1004",
+    "tradeDate": "2025-01-10",
+    "price": 350.0,
+    "exchange": "CBOT",
+    "productType": "FUT",
+    "valid": false,
+    "validationError": "Duplicate GUID (primary key violation)"
+}
+```
+
+**Response (Empty GUID Example):**
+
+```json
+{
+  "records": [
+    {
+      "index": 13,
+      "instrumentGuid": "",
+      "tradeDate": "2025-01-10",
+      "price": 200.0,
+      "exchange": "",
+      "productType": "FUT",
+      "status": "INVALID",
+      "error": "Missing exchange; Missing instrument GUID (primary key required)"
+    },
+    {
+      "index": 16,
+      "instrumentGuid": "",
+      "tradeDate": "2025-01-10",
+      "price": 250.0,
+      "exchange": "COMEX",
+      "productType": "OPT",
+      "status": "INVALID",
+      "error": "Missing instrument GUID (primary key required)"
+    }
+  ],
+  "count": 2,
+  "message": "Multiple records found with GUID: (empty)",
+  "instruction": "Use GET /api/pricing/records/EMPTY?index={index} to view a specific record"
+}
+  // use index after getting indexes
+{
+    "index": 13,
+    "instrumentGuid": "",
+    "tradeDate": "2025-01-10",
+    "price": 200.0,
+    "exchange": "",
+    "productType": "FUT",
+    "valid": false,
+    "validationError": "Missing exchange; Missing instrument GUID (primary key required)"
+}
+```
+
 **Response (Not Found):**
+
 ```json
 {
   "error": "Record not found for instrument GUID: 1001"
@@ -183,15 +330,19 @@ Retrieves a specific pricing record by instrument GUID.
 ```
 
 **Status Codes:**
-- `200 OK`: Record found
+
+- `200 OK`: Record found (single or multiple)
 - `404 Not Found`: Record not found
+- `409 Conflict`: Multiple records found (when accessing without index parameter)
 
-**Example (curl):**
-```bash
-curl http://localhost:8080/api/pricing/records/1001
-```
+**Query Parameters:**
 
----
+- `index` (integer, optional): Specify which record to retrieve when multiple records share the same GUID
+
+**Note:** When accessing records with duplicate GUIDs or empty GUIDs:
+
+1. **First request (without index):** The API will return an error response with a list of all matching records and their indices
+2. **Second request (with index):** Use the `?index=` parameter with one of the provided indices to retrieve the specific record
 
 ## 6. Update Record
 
@@ -200,32 +351,29 @@ Updates an existing pricing record. All fields can be updated.
 **Endpoint:** `PUT /api/pricing/records/{instrumentGuid}`
 
 **Path Parameters:**
+
 - `instrumentGuid` (string, required): The instrument GUID to update
 
 **Request Body:**
+
 ```json
 {
-  "price": 150.00,
+  "price": 150.0,
   "exchange": "CME",
   "productType": "FUT",
   "tradeDate": "2025-01-10"
 }
 ```
 
-**Parameters (all optional, but at least one should be provided):**
-- `price` (number): New price value
-- `exchange` (string): New exchange value
-- `productType` (string): New product type
-- `tradeDate` (string): New trade date in format "yyyy-MM-dd"
-
 **Response (Success):**
+
 ```json
 {
   "message": "Record updated successfully",
   "record": {
     "instrumentGuid": "1003",
     "tradeDate": "2025-01-10",
-    "price": 150.00,
+    "price": 150.0,
     "exchange": "CME",
     "productType": "FUT",
     "valid": true,
@@ -234,97 +382,65 @@ Updates an existing pricing record. All fields can be updated.
 }
 ```
 
-**Response (Not Found):**
-```json
-{
-  "error": "Record not found for instrument GUID: 1003"
-}
+**Response (Multiple Records Found - Step 1):**
+
+When multiple records share the same GUID or when accessing empty GUIDs without the index parameter, the API first returns a list with indices:
+
+**Step 2 - With index parameter (returns success):**
+
+```
+**Example** PUT /api/pricing/records/1004?index=3
 ```
 
+Returns the success response shown above.
+
 **Status Codes:**
+
 - `200 OK`: Record updated successfully
+- `400 Bad Request`: Multiple records found - index parameter required
 - `404 Not Found`: Record not found
+- `409 Conflict`: Multiple records found (when accessing without index parameter)
 
-**Example (curl):**
-```bash
-curl -X PUT http://localhost:8080/api/pricing/records/1003 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "price": 150.00,
-    "exchange": "CME",
-    "productType": "FUT",
-    "tradeDate": "2025-01-10"
-  }'
-```
+**Query Parameters:**
 
-**Note:** After update, the record is automatically re-validated.
+- `index` (integer, optional): Specify which record to update when multiple records share the same GUID
+
+**Note:**
+
+- After update, the record is automatically re-validated.
+- **For duplicates and null GUIDs:** When performing an update operation without the `?index=` parameter, the API will first return an error response listing all matching records with their indices. Use one of these indices in the `?index=` parameter to update the specific record (e.g., `PUT /api/pricing/records/1004?index=3`).
+- For records with duplicate GUIDs, use the `?index=` parameter (e.g., `PUT /api/pricing/records/1004?index=3`)
+- For empty GUIDs, use `EMPTY` as the GUID placeholder (e.g., `PUT /api/pricing/records/EMPTY?index=14`)
 
 ---
 
-## 7. Delete Record
-
-Deletes a pricing record from the system.
-
-**Endpoint:** `DELETE /api/pricing/records/{instrumentGuid}`
-
-**Path Parameters:**
-- `instrumentGuid` (string, required): The instrument GUID to delete
-
-**Response (Success):**
-```json
-{
-  "message": "Record deleted successfully"
-}
-```
-
-**Response (Not Found):**
-```json
-{
-  "error": "Record not found for instrument GUID: 1005"
-}
-```
-
-**Status Codes:**
-- `200 OK`: Record deleted successfully
-- `404 Not Found`: Record not found
-
-**Example (curl):**
-```bash
-curl -X DELETE http://localhost:8080/api/pricing/records/1005
-```
-
----
-
-## 8. Correct Invalid Record
+## 7. Correct Invalid Record
 
 Corrects an invalid record by updating specific fields. This is similar to update but specifically designed for fixing validation errors.
 
 **Endpoint:** `POST /api/pricing/records/{instrumentGuid}/correct`
 
 **Path Parameters:**
+
 - `instrumentGuid` (string, required): The instrument GUID to correct
 
 **Request Body:**
+
 ```json
 {
-  "price": 150.00
+  "price": 150.0
 }
 ```
 
-**Parameters (all optional, but at least one should be provided):**
-- `price` (number): Corrected price value
-- `exchange` (string): Corrected exchange value
-- `productType` (string): Corrected product type
-- `tradeDate` (string): Corrected trade date in format "yyyy-MM-dd"
-
 **Response (Success):**
+
 ```json
 {
   "message": "Record corrected successfully",
   "record": {
     "instrumentGuid": "1003",
     "tradeDate": "2025-01-10",
-    "price": 150.00,
+    "price": 150.0,
     "exchange": "CME",
     "productType": "FUT",
     "valid": true,
@@ -334,25 +450,180 @@ Corrects an invalid record by updating specific fields. This is similar to updat
 }
 ```
 
+**Response (Multiple Records Found - Step 1):**
+
+When multiple records share the same GUID or when accessing empty GUIDs without the index parameter, the API first returns a list with indices:
+
+**Step 2 - With index parameter (returns success):**
+
+````
+Example- POST /api/pricing/records/1004/correct?index=4
+```json
+{
+  "price": 150.0
+}```
+Returns the success response shown above.
+
 **Response (Not Found):**
+
 ```json
 {
   "error": "Record not found for instrument GUID: 1003"
 }
+````
+
+**Status Codes:**
+
+- `200 OK`: Record corrected successfully
+- `400 Bad Request`: Multiple records found - index parameter required, or correction failed
+- `404 Not Found`: Record not found
+- `409 Conflict`: Multiple records found (when accessing without index parameter)
+
+**Query Parameters:**
+
+- `index` (integer, optional): Specify which record to correct when multiple records share the same GUID
+
+**Note:**
+
+- After correction, the record is automatically re-validated and the validation report is regenerated.
+- **For duplicates and null GUIDs:** When performing a correct operation without the `?index=` parameter, the API will first return an error response listing all matching records with their indices. Use one of these indices in the `?index=` parameter to correct the specific record (e.g., `POST /api/pricing/records/1004/correct?index=3`).
+- For records with duplicate GUIDs, use the `?index=` parameter (e.g., `POST /api/pricing/records/1004/correct?index=3`)
+- For empty GUIDs, use `EMPTY` as the GUID placeholder (e.g., `POST /api/pricing/records/EMPTY/correct?index=14`)
+
+**Example - Correcting Empty GUID Record:**
+
+To correct a record with an empty GUID, use `EMPTY` as the GUID placeholder:
+
+**Request:**
+
+```
+POST /api/pricing/records/EMPTY/correct?index=13
+Content-Type: application/json
+
+{
+  "instrumentGuid": "1021",
+  "price": 200.0,
+  "exchange": "CME",
+  "productType": "FUT",
+  "tradeDate": "2025-01-10"
+}
+```
+
+**Response:**
+
+```json
+{
+  "message": "Record corrected successfully",
+  "record": {
+    "instrumentGuid": "1021",
+    "tradeDate": "2025-01-10",
+    "price": 200.0,
+    "exchange": "CME",
+    "productType": "FUT",
+    "valid": true,
+    "validationError": null
+  },
+  "isValid": true
+}
+```
+
+**Note:** When correcting an empty GUID record, you can add a GUID value in the request body to assign a new GUID to the record.
+
+---
+
+## 8. Delete Record
+
+Deletes a pricing record from the system.
+
+**Endpoint:** `DELETE /api/pricing/records/{instrumentGuid}`
+
+**Path Parameters:**
+
+- `instrumentGuid` (string, required): The instrument GUID to delete
+
+**Response (Success):**
+
+```json
+{
+  "message": "Record deleted successfully"
+}
+```
+
+**Response (Multiple Records Found - Step 1):**
+
+When multiple records share the same GUID or when accessing empty GUIDs without the index parameter, the API first returns a list with indices:
+
+```
+
+**Step 2 - With index parameter (returns success):**
+
+```
+
+DELETE /api/pricing/records/1004?index=4
+
+````
+
+Returns the success response shown above.
+
+**Response (Not Found):**
+
+```json
+{
+  "error": "Record not found for instrument GUID: 1005"
+}
+````
+
+**Status Codes:**
+
+- `200 OK`: Record deleted successfully
+- `400 Bad Request`: Multiple records found - index parameter required
+- `404 Not Found`: Record not found
+- `409 Conflict`: Multiple records found (when accessing without index parameter)
+
+**Query Parameters:**
+
+- `index` (integer, optional): Specify which record to delete when multiple records share the same GUID
+
+**Note:**
+
+- **For duplicates and null GUIDs:** When performing a delete operation without the `?index=` parameter, the API will first return an error response listing all matching records with their indices. Use one of these indices in the `?index=` parameter to delete the specific record (e.g., `DELETE /api/pricing/records/1004?index=4`).
+- For records with duplicate GUIDs, use the `?index=` parameter (e.g., `DELETE /api/pricing/records/1004?index=4`)
+- For empty GUIDs, use `EMPTY` as the GUID placeholder (e.g., `DELETE /api/pricing/records/EMPTY?index=14`)
+
+---
+
+## 9. Generate Text Report
+
+Generates a formatted text report and saves it to a file.
+
+**Endpoint:** `POST /api/pricing/report/generate`
+
+**Request Body:**
+
+```json
+{
+  "outputPath": "validation_report.txt"
+}
+```
+
+**Parameters:**
+
+- `outputPath` (string, optional): Path where the report will be saved. Default: "validation_report.txt"
+
+**Response:**
+
+```json
+{
+  "message": "Report generated successfully",
+  "outputPath": "validation_report.txt",
+  "report": "=== PRICING DATA VALIDATION REPORT ===\n..."
+}
 ```
 
 **Status Codes:**
-- `200 OK`: Record corrected successfully
-- `404 Not Found`: Record not found
 
-**Example (curl):**
-```bash
-curl -X POST http://localhost:8080/api/pricing/records/1003/correct \
-  -H "Content-Type: application/json" \
-  -d '{"price": 150.00}'
-```
-
-**Note:** After correction, the record is automatically re-validated and the validation report is regenerated.
+- `200 OK`: Report generated successfully
+- `500 Internal Server Error`: File write error
 
 ---
 
@@ -401,75 +672,139 @@ All error responses follow this format:
 ```
 
 Common HTTP status codes:
+
 - `400 Bad Request`: Invalid request parameters
 - `404 Not Found`: Resource not found
 - `500 Internal Server Error`: Server-side error
 
 ---
 
-## Usage Examples
+## Usage
 
-### Complete Workflow
+### Typical Workflow
 
-1. **Load data:**
-```bash
-curl -X POST http://localhost:8080/api/pricing/load \
-  -H "Content-Type: application/json" \
-  -d '{"filePath":"sample_data/pricing_data.csv"}'
-```
+1. **Get API Info:** `GET /api/pricing/` - Check API status and available endpoints
+2. **Load Data:** `POST /api/pricing/load` - Load and validate CSV file
+3. **View Report:** `GET /api/pricing/report` - Get validation summary and details
+4. **View Records:** `GET /api/pricing/records` - List all records with indices
+5. **Update Records:** `PUT /api/pricing/records/{guid}` - Update record fields
+6. **Correct Errors:** `POST /api/pricing/records/{guid}/correct` - Fix invalid records
+7. **Delete Records:** `DELETE /api/pricing/records/{guid}` - Remove records
+8. **Generate Report:** `POST /api/pricing/report/generate` - Create text report file (final step)
 
-2. **View report:**
-```bash
-curl http://localhost:8080/api/pricing/report
-```
+### Handling Duplicates and Empty GUIDs
 
-3. **Correct invalid record:**
-```bash
-curl -X POST http://localhost:8080/api/pricing/records/1003/correct \
-  -H "Content-Type: application/json" \
-  -d '{"price": 150.00}'
-```
+**Important:** When performing operations (GET SPECIFIC RECORD,UPDATE,CORRECT,DELETE) on records with duplicate GUIDs or empty GUIDs:
 
-4. **Generate final report:**
-```bash
-curl -X POST http://localhost:8080/api/pricing/report/generate \
-  -H "Content-Type: application/json" \
-  -d '{"outputPath":"final_report.txt"}'
-```
+1. **First Request (without index):** The API will return an error response containing a list of all matching records with their indices
+2. **Second Request (with index):** Use the `?index=` parameter with one of the provided indices to perform the operation on the specific record
 
----
+**Examples:**
 
-## Testing with Postman
+- **Duplicate GUIDs:** When multiple records share the same GUID, use the `?index=` parameter to target a specific record (e.g., `GET /api/pricing/records/1004?index=3`)
+- **Empty GUIDs:** Use `EMPTY` as the GUID placeholder (e.g., `GET /api/pricing/records/EMPTY?index=14`)
 
-1. Import the following collection or create requests manually:
+## Postman Testing
 
-**Collection: Pricing Validation API**
+### Postman Collection
 
-- POST `http://localhost:8080/api/pricing/load`
-  - Body (raw JSON): `{"filePath":"sample_data/pricing_data.csv"}`
+**Base URL:** `https://pricing-validation-iab5.onrender.com/api/pricing`
 
-- GET `http://localhost:8080/api/pricing/report`
+#### 1. Get API Info
 
-- GET `http://localhost:8080/api/pricing/records`
+- **Method**: GET
+- **URL**: `https://pricing-validation-iab5.onrender.com/api/pricing/`
+- **Body**: None
 
-- GET `http://localhost:8080/api/pricing/records/1001`
+#### 2. Load Data
 
-- PUT `http://localhost:8080/api/pricing/records/1003`
-  - Body (raw JSON): `{"price":150.00,"exchange":"CME","productType":"FUT","tradeDate":"2025-01-10"}`
+- **Method**: POST
+- **URL**: `https://pricing-validation-iab5.onrender.com/api/pricing/load`
+- **Headers**: `Content-Type: application/json`
+- **Body** (raw JSON):
+  ```json
+  {
+    "filePath": "sample_data/pricing_data.csv"
+  }
+  ```
 
-- POST `http://localhost:8080/api/pricing/records/1003/correct`
-  - Body (raw JSON): `{"price":150.00}`
+#### 3. Get Validation Report
 
-- DELETE `http://localhost:8080/api/pricing/records/1005`
+- **Method**: GET
+- **URL**: `https://pricing-validation-iab5.onrender.com/api/pricing/report`
+- **Body**: None
 
----
+#### 4. Get All Records
+
+- **Method**: GET
+- **URL**: `https://pricing-validation-iab5.onrender.com/api/pricing/records`
+- **Body**: None
+
+#### 5. Get Specific Record
+
+- **Method**: GET
+- **URL**: `https://pricing-validation-iab5.onrender.com/api/pricing/records/1001`
+- **Body**: None
+- **Note**: For duplicates, use `?index=3` parameter. Example: `https://pricing-validation-iab5.onrender.com/api/pricing/records/1004?index=3` and for Null Guid, use `https://pricing-validation-iab5.onrender.com/api/pricing/records/EMPTY?index=13`
+
+#### 6. Update Record
+
+- **Method**: PUT
+- **URL**: `https://pricing-validation-iab5.onrender.com/api/pricing/records/1003`
+- **Headers**: `Content-Type: application/json`
+- **Body** (raw JSON):
+  ```json
+  {
+    "price": 150.0
+  }
+  ```
+- **Note**: For duplicates, use `?index=3` parameter. Example: `https://pricing-validation-iab5.onrender.com/api/pricing/records/1004?index=3` and for Null Guid, use `https://pricing-validation-iab5.onrender.com/api/pricing/records/EMPTY?index=13`
+
+#### 7. Correct Invalid Record
+
+- **Method**: POST
+- **URL**: `https://pricing-validation-iab5.onrender.com/api/pricing/records/1005/correct`
+- **Headers**: `Content-Type: application/json`
+- **Body** (raw JSON):
+  ```json
+  {
+    "price": 175.0
+  }
+  ```
+- **Note**: For duplicates, use `?index=3` parameter. Example: `https://pricing-validation-iab5.onrender.com/api/pricing/records/1004/correct?index=4` and for Null Guid, use `https://pricing-validation-iab5.onrender.com/api/pricing/records/EMPTY/correct?index=13`
+
+#### 8. Delete Record
+
+- **Method**: DELETE
+- **URL**: `https://pricing-validation-iab5.onrender.com/api/pricing/records/1020`
+- **Body**: None
+- **Note**: For duplicates, use `?index=3` parameter. Example: `https://pricing-validation-iab5.onrender.com/api/pricing/records/1004?index=3` and for Null Guid, use `https://pricing-validation-iab5.onrender.com/api/pricing/records/EMPTY?index=13`
+
+#### 9. Generate Text Report
+
+- **Method**: POST
+- **URL**: `https://pricing-validation-iab5.onrender.com/api/pricing/report/generate`
+- **Headers**: `Content-Type: application/json`
+- **Body** (raw JSON):
+  ```json
+  {
+    "outputPath": "validation_report.txt"
+  }
+  ```
+
+### Testing Tips
+
+- **For Duplicate GUIDs**: Add `?index=` parameter (e.g., `https://pricing-validation-iab5.onrender.com/api/pricing/records/1004?index=3`)
+- **For Empty GUIDs**: Use `EMPTY` as placeholder (e.g., `https://pricing-validation-iab5.onrender.com/api/pricing/records/EMPTY?index=16`)
+- **Check Response**: All responses are JSON format
+- **Error Handling**: Check status codes and error messages in response body
 
 ## Notes
 
 - All dates must be in `yyyy-MM-dd` format
-- Prices must be positive numbers
+- Prices must be positive numbers (> 0)
 - Valid exchanges: CME, NYMEX, CBOT, COMEX
 - Valid product types: FUT, OPT
 - The application maintains state in memory (data is lost on restart)
 - File paths can be relative to project root or absolute paths
-
+- For detailed testing instructions and validation rules, see `TESTING_GUIDE.md`

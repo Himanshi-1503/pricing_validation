@@ -15,49 +15,42 @@ A Java Spring Boot application for validating pricing data from CSV files. Valid
 
 ### Prerequisites
 
-- Java 17 or higher
-- Maven 3.6 or higher
+- **Java 21** (required - see `pom.xml`)
+- **Maven 3.6 or higher**
+
+**Installation (New System):**
+
+1. **Install Java 21:**
+
+   - Download from [Oracle](https://www.oracle.com/java/technologies/downloads/#java21) or [OpenJDK](https://adoptium.net/)
+   - Verify: `java -version` (should show version 21.x.x)
+
+2. **Install Maven:**
+   - Download from [Apache Maven](https://maven.apache.org/download.cgi)
+   - Add to PATH
+   - Verify: `mvn -version` (should show version 3.6 or higher)
 
 ### Build and Run
 
-**Development mode** (recommended for testing):
-
-```bash
-# Run as REST API (default)
-mvn spring-boot:run
-
-# Run in CLI mode
-mvn spring-boot:run -Dspring-boot.run.arguments=--cli
-```
-
-**Production mode** (build JAR first):
+**CLI Mode (Recommended):**
 
 ```bash
 # Build the project
 mvn clean package
 
-# Run as REST API (default)
-java -jar target/pricing-validation-1.0.0.jar
-
 # Run in CLI mode
 java -jar target/pricing-validation-1.0.0.jar --cli
 ```
 
-The API runs on `http://localhost:8080` by default.
+The CLI provides an interactive menu-driven interface for all operations.
+
+**Note:** On a new system, Maven will automatically download all dependencies during the first `mvn clean package` command. This may take a few minutes.
 
 ## Usage
 
 ### CLI Mode (Interactive Menu)
 
-Run the application in CLI mode for an interactive menu-driven interface:
-
-```bash
-# Development
-mvn spring-boot:run -Dspring-boot.run.arguments=--cli
-
-# Production
-java -jar target/pricing-validation-1.0.0.jar --cli
-```
+After building and starting the application, you'll see an interactive menu:
 
 **Menu Options:**
 
@@ -69,68 +62,29 @@ java -jar target/pricing-validation-1.0.0.jar --cli
 6. Generate text report file
 7. Exit
 
-### REST API
+**Example Workflow:**
 
-The application runs as a REST API by default, providing HTTP endpoints for all operations.
-
-**Start the API server:**
-
-```bash
-mvn spring-boot:run
-# or
-java -jar target/pricing-validation-1.0.0.jar
-```
-
-The API will be available at `http://localhost:8080`
-
-**Quick Start Examples:**
-
-**1. Load data:**
-
-```bash
-curl -X POST http://localhost:8080/api/pricing/load \
-  -H "Content-Type: application/json" \
-  -d '{"filePath":"sample_data/pricing_data.csv"}'
-```
-
-**2. Get validation report:**
-
-```bash
-curl http://localhost:8080/api/pricing/report
-```
-
-**3. Update a record:**
-
-```bash
-curl -X PUT http://localhost:8080/api/pricing/records/1003 \
-  -H "Content-Type: application/json" \
-  -d '{"price":150.00}'
-```
-
-For PowerShell commands and more examples, see `API_COMMANDS_QUICK_REFERENCE.md`.
+1. Start CLI: `java -jar target/pricing-validation-1.0.0.jar --cli`
+2. Select option 1: Load CSV file (e.g., `sample_data/pricing_data.csv`)
+3. Select option 2: View validation report
+4. Select option 3: View specific record by GUID
+5. Select option 4: Update records to fix errors
+6. Select option 5: Delete records (if needed)
+7. Select option 6: Generate text report file
+8. Select option 7: Exit
 
 ## Validation Rules
 
-Records are validated against:
+The application enforces comprehensive validation rules to ensure data quality. Each record is validated for:
 
-- **Price**: Must be present, numeric, and greater than zero
-- **Exchange**: Must be one of: CME, NYMEX, CBOT, COMEX
-- **Product Type**: Must be FUT or OPT
-- **Instrument GUID**: Required, non-empty
-- **Trade Date**: Required, format: YYYY-MM-DD
-- **Duplicates**: Detects exact duplicate records (all fields match)
+- Price validation (required, numeric, > 0)
+- Exchange validation (CME, NYMEX, CBOT, COMEX)
+- Product type validation (FUT, OPT)
+- Instrument GUID validation (required, unique primary key)
+- Trade date validation (YYYY-MM-DD format)
+- Duplicate detection (GUID uniqueness)
 
-## Handling Duplicates
-
-When multiple records share the same GUID, the API returns a 409 Conflict with a list of all matching records. Use the `index` parameter to target a specific record:
-
-```bash
-# Get list of duplicates
-curl http://localhost:8080/api/pricing/records/1004
-
-# Access specific record by index
-curl http://localhost:8080/api/pricing/records/1004?index=3
-```
+> **📄 For complete validation rules and testing instructions, see [`TESTING_GUIDE.md`](TESTING_GUIDE.md)**
 
 ## API Endpoints
 
@@ -147,24 +101,101 @@ curl http://localhost:8080/api/pricing/records/1004?index=3
 
 See `API_DOCUMENTATION.md` for detailed request/response formats.
 
+## Architecture & Logic
+
+### System Architecture
+
+The application follows a **layered architecture** pattern with clear separation of concerns:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    REST API / CLI                        │
+│              (Entry Points - User Interface)             │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────┐
+│                  Controller Layer                         │
+│            (PricingController.java)                       │
+│  • Handles HTTP requests                                  │
+│  • Request/Response mapping                               │
+│  • Error handling                                         │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────┐
+│                  Service Layer                            │
+│            (PricingService.java)                          │
+│  • Business logic orchestration                           │
+│  • Data management                                        │
+│  • Coordinates parser, validator, and report generator    │
+└──────────┬───────────────────────────┬──────────────────┘
+           │                           │
+┌──────────▼──────────┐    ┌──────────▼──────────┐
+│   Parser Layer       │    │  Validator Layer   │
+│  (CSVParser.java)    │    │(PricingValidator)  │
+│  • CSV file reading  │    │  • Rule validation│
+│  • Data extraction    │    │  • Duplicate check│
+│  • Type conversion    │    │  • Error tracking │
+└──────────────────────┘    └───────────────────┘
+           │                           │
+           └──────────┬────────────────┘
+                      │
+         ┌────────────▼────────────┐
+         │     Model Layer          │
+         │  • PricingRecord          │
+         │  • ValidationReport      │
+         └────────────┬─────────────┘
+                      │
+         ┌────────────▼────────────┐
+         │   Report Generator      │
+         │  (ReportGenerator.java)  │
+         │  • Text report creation  │
+         │  • JSON report format    │
+         └─────────────────────────┘
+```
+
+### Data Flow
+
+1. **Input**: CSV file containing pricing data
+2. **Parsing**: `CSVParser` reads CSV and converts rows to `PricingRecord` objects
+3. **Validation**: `PricingValidator` applies all validation rules to each record
+4. **Duplicate Detection**: Validator identifies duplicate GUIDs (primary key violations)
+5. **Report Generation**: `ReportGenerator` creates comprehensive validation reports
+6. **Storage**: Records and reports are stored in memory (service layer)
+7. **Output**:
+   - REST API returns JSON responses
+   - CLI displays interactive menus and reports
+   - Text files can be generated for reports
+
+### Component Responsibilities
+
+- **PricingController**: Handles HTTP requests, maps requests to service methods, formats responses
+- **PricingService**: Orchestrates business logic, manages data state, coordinates components
+- **CSVParser**: Reads CSV files, parses data, handles file I/O, converts strings to appropriate types
+- **PricingValidator**: Applies validation rules, identifies duplicates, tracks errors
+- **ReportGenerator**: Formats validation results into readable reports (JSON and text)
+- **PricingRecord**: Data model representing a single pricing record
+- **ValidationReport**: Data model containing validation summary and detailed results
+
 ## Project Structure
 
 ```
 src/main/java/com/cme/pricing/
-├── PricingValidationApplication.java  # Main application
+├── PricingValidationApplication.java  # Main application entry point
 ├── controller/
-│   └── PricingController.java         # REST endpoints
+│   └── PricingController.java         # REST API endpoints (GET, POST, PUT, DELETE)
 ├── service/
-│   └── PricingService.java            # Business logic
+│   └── PricingService.java            # Business logic and data management
 ├── validator/
-│   └── PricingValidator.java          # Validation rules
+│   └── PricingValidator.java          # Validation rules implementation
 ├── parser/
-│   └── CSVParser.java                 # CSV parsing
+│   └── CSVParser.java                 # CSV file parsing and data extraction
 ├── model/
-│   ├── PricingRecord.java             # Data model
-│   └── ValidationReport.java          # Report model
-└── report/
-    └── ReportGenerator.java           # Report generation
+│   ├── PricingRecord.java             # Data model for pricing records
+│   └── ValidationReport.java          # Data model for validation reports
+├── report/
+│   └── ReportGenerator.java          # Report generation (JSON and text)
+└── cli/
+    └── PricingCLI.java                # Command-line interface implementation
 ```
 
 ## Sample Data
@@ -205,188 +236,137 @@ mvn -version
 
 ## Deployment
 
-### Step 1: Build the Application
+### Deploy to Render
 
-First, build the production JAR file:
+**Render** offers free hosting for web services using Docker.
+
+### Prerequisites
+
+- ✅ GitHub repository with your code
+- ✅ Dockerfile in repository root (already included)
+- ✅ `application.properties` configured for PORT (already done)
+
+### Step-by-Step Deployment
+
+**Step 1: Sign Up**
+
+1. Go to [render.com](https://render.com)
+2. Click **"Get Started for Free"**
+3. Sign up with your GitHub account (recommended) or email
+
+**Step 2: Create New Web Service**
+
+1. After logging in, click **"New +"** button (top right)
+2. Select **"Web Service"** from the dropdown
+
+**Step 3: Connect Repository**
+
+1. Click **"Connect account"** if not already connected to GitHub
+2. Authorize Render to access your GitHub repositories
+3. Search for your repository: `pricing_validation` (or your repo name)
+4. Click **"Connect"** next to your repository
+
+**Step 4: Configure Service Settings**
+
+Fill in the following configuration:
+
+- **Name**: `pricing-validation` (or any name you prefer)
+- **Region**: Select **"Singapore (Asia Pacific)** - closest to India for better latency
+- **Branch**: `main` (or your default branch)
+- **Root Directory**: Leave **empty** (default is root)
+- **Runtime**: Select **"Docker"** (Java/Maven not available in Render)
+- **Build Command**: Leave **empty** (Dockerfile handles this automatically)
+- **Start Command**: Leave **empty** (Dockerfile handles this automatically)
+- **Port**: Leave **empty** (Render automatically sets PORT environment variable)
+
+**Step 5: Verify Configuration Files**
+
+✅ **Dockerfile** (already in repository):
+
+- Uses Maven to build the application
+- Copies `sample_data` folder
+- Creates production JAR
+- Exposes port 8080
+- Runs the application
+
+✅ **application.properties** (already configured):
+
+```properties
+server.port=${PORT:8080}
+```
+
+This allows Render to set the port dynamically.
+
+**Step 6: Deploy**
+
+1. Click **"Create Web Service"** button
+2. Render will:
+   - Clone your repository
+   - Build Docker image using Dockerfile
+   - Start the container
+   - Assign a public URL
+
+**Step 7: Monitor Deployment**
+
+1. Watch the **"Logs"** tab for build progress
+2. First deployment takes **3-5 minutes** (building Docker image)
+3. Look for: `Started PricingValidationApplication` in logs
+4. Status changes to **"Live"** when ready
+
+**Step 8: Get Your URL**
+
+1. Once deployed, Render provides a URL like:
+   ```
+   `https://pricing-validation-iab5.onrender.com`
+   ```
+2. Copy this URL - this is your API base URL
+3. Test it: `https://pricing-validation-iab5.onrender.com`
+
+**Troubleshooting:**
+
+- Check **Logs** tab in Render dashboard for errors
+- Ensure Dockerfile is in repository root
+- Verify `application.properties` has `server.port=${PORT:8080}`
+- First request may timeout - wait 30 seconds and retry
+
+## (Optional) Web Interface (REST API)
+
+The application also provides a REST API web interface for programmatic access.
+
+### Testing with Postman
+
+To test the API endpoints, you'll need Postman:
+
+1. **Download Postman:**
+
+   - Visit [https://www.postman.com/downloads/](https://www.postman.com/downloads/)
+   - Download the appropriate version for your operating system (Windows, macOS, or Linux)
+   - Install Postman following the installation wizard
+
+2. **Deployed API URL:**
+   - Base URL: `https://pricing-validation-iab5.onrender.com/api/pricing`
+   - All endpoints are available at this URL
+
+**Start API Server (Local Development):**
 
 ```bash
+# Build first
 mvn clean package
+
+# Run as REST API (default, no --cli flag)
+java -jar target/pricing-validation-1.0.0.jar
 ```
 
-This creates `target/pricing-validation-1.0.0.jar` - a standalone executable JAR file.
+The API runs on `http://localhost:8080` by default (for local development).
 
-### Step 2: Choose Deployment Platform
-
-#### Option A: Railway (Recommended - Free & Easy)
-
-**Railway** is the easiest platform for deploying Spring Boot apps.
-
-1. **Sign up**: Go to [railway.app](https://railway.app) and sign up with GitHub
-2. **Create new project**: Click "New Project" → "Deploy from GitHub repo"
-3. **Select your repository**: Choose your project repository
-4. **Configure build**:
-   - Build Command: `mvn clean package -DskipTests`
-   - Start Command: `java -jar target/pricing-validation-1.0.0.jar`
-   - Port: Railway automatically sets `PORT` environment variable
-5. **Update application.properties** (if needed):
-   ```properties
-   server.port=${PORT:8080}
-   ```
-6. **Deploy**: Railway will automatically build and deploy your app
-7. **Get URL**: Railway provides a URL like `https://your-app.railway.app`
-
-**Note**: Railway's free tier includes 500 hours/month and $5 credit.
-
----
-
-#### Option B: Render (Free Tier Available)
-
-**Render** offers free hosting for web services.
-
-1. **Sign up**: Go to [render.com](https://render.com) and sign up
-2. **Create new Web Service**: Click "New" → "Web Service"
-3. **Connect repository**: Link your GitHub repository
-4. **Configure** (using Docker since Java is not available):
-
-   - **Name**: `pricing-validation` (or any name)
-   - **Language**: Select **`Docker`** (Java/Maven not available in Render)
-   - **Branch**: `main`
-   - **Region**: Choose **Singapore (Asia Pacific)** - closest to India
-   - **Root Directory**: Leave empty
-   - **Build Command**: Leave empty (Docker will use Dockerfile automatically)
-   - **Start Command**: Leave empty (Docker will use Dockerfile automatically)
-   - **Port**: Leave empty (Render automatically sets PORT environment variable)
-
-   ✅ **Dockerfile is already in your repository** - Render will automatically detect and use it!
-
-5. **Verify application.properties** (already configured):
-   ```properties
-   server.port=${PORT:8080}
-   ```
-   ✅ Your current `application.properties` is already correct! Render will automatically set the `PORT` environment variable, and your app will use it.
-6. **Deploy**: Click "Create Web Service"
-7. **Get URL**: Render provides a URL like `https://your-app.onrender.com`
-
-**Note**: Free tier apps spin down after 15 minutes of inactivity (takes ~30 seconds to wake up).
-
----
-
-#### Option C: Traditional Server (VPS/Cloud Server)
-
-For deploying on your own server (AWS EC2, DigitalOcean, etc.):
-
-1. **Upload JAR file** to your server:
-
-   ```bash
-   scp target/pricing-validation-1.0.0.jar user@your-server:/path/to/app/
-   ```
-
-2. **Install Java 21** on the server:
-
-   ```bash
-   sudo apt update
-   sudo apt install openjdk-21-jdk
-   ```
-
-3. **Run the application**:
-
-   ```bash
-   java -jar pricing-validation-1.0.0.jar
-   ```
-
-4. **Run as a service** (optional - for auto-restart):
-
-   Create `/etc/systemd/system/pricing-api.service`:
-
-   ```ini
-   [Unit]
-   Description=Pricing Validation API
-   After=network.target
-
-   [Service]
-   Type=simple
-   User=your-user
-   WorkingDirectory=/path/to/app
-   ExecStart=/usr/bin/java -jar /path/to/app/pricing-validation-1.0.0.jar
-   Restart=always
-   RestartSec=10
-
-   [Install]
-   WantedBy=multi-user.target
-   ```
-
-   Then:
-
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable pricing-api
-   sudo systemctl start pricing-api
-   ```
-
-5. **Configure firewall** (if needed):
-   ```bash
-   sudo ufw allow 8080/tcp
-   ```
-
----
-
-### Step 3: Update API Base URL
-
-After deployment, update your API calls to use the deployed URL:
-
-**Local:**
-
-```bash
-http://localhost:8080/api/pricing/load
-```
-
-**Deployed (Railway example):**
-
-```bash
-https://your-app.railway.app/api/pricing/load
-```
-
-### Step 4: Test Deployment
-
-Test your deployed API:
-
-```bash
-# Get API info
-curl https://your-app.railway.app/api/pricing/
-
-# Load data (note: file paths need to be accessible on server)
-curl -X POST https://your-app.railway.app/api/pricing/load \
-  -H "Content-Type: application/json" \
-  -d '{"filePath":"sample_data/pricing_data.csv"}'
-```
-
-### Important Notes for Deployment
-
-1. **File Paths**: When deployed, file paths are relative to the application's working directory. You may need to upload CSV files to the server or use absolute paths.
-
-2. **Port Configuration**: Most cloud platforms set the `PORT` environment variable. Update `application.properties`:
-
-   ```properties
-   server.port=${PORT:8080}
-   ```
-
-3. **Environment Variables**: You can configure the app using environment variables:
-
-   ```bash
-   export SERVER_PORT=8080
-   export LOGGING_LEVEL=INFO
-   ```
-
-4. **Logs**: Check platform logs for errors:
-   - Railway: Dashboard → Your App → Logs
-   - Render: Dashboard → Your Service → Logs
+For complete API documentation and testing examples, see **`API_DOCUMENTATION.md`**.
 
 ## Documentation
 
-- `API_DOCUMENTATION.md` - Complete API reference
-- `API_COMMANDS_QUICK_REFERENCE.md` - PowerShell/curl commands
-- `TEST_GET_ENDPOINTS_BROWSER.md` - Browser testing guide
+- **`README.md`** (this file) - Project overview, architecture, quick start, deployment
+- **`API_DOCUMENTATION.md`** - Complete API reference with endpoints, request/response formats, and Postman testing
+- **`TESTING_GUIDE.md`** - Validation rules, sample dataset explanation, CLI testing steps, and complete testing workflow
 
 ## License
 
-This project was developed as a learning exercise for pricing data validation.
+This project was developed as part of a pre-internship assignment at CME Group for learning and educational purposes related to pricing data validation and reporting.

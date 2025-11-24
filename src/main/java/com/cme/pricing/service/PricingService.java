@@ -180,11 +180,20 @@ public class PricingService {
     
     /**
      * Gets all records by instrument GUID
+     * If instrumentGuid is empty string, returns all records with null or empty GUIDs
      */
     public List<PricingRecord> getAllRecordsByGuid(String instrumentGuid) {
-        return records.stream()
-                .filter(r -> r.getInstrumentGuid() != null && r.getInstrumentGuid().equals(instrumentGuid))
-                .collect(Collectors.toList());
+        if (instrumentGuid == null || instrumentGuid.trim().isEmpty()) {
+            // Return records with null or empty GUIDs
+            return records.stream()
+                    .filter(r -> r.getInstrumentGuid() == null || r.getInstrumentGuid().trim().isEmpty())
+                    .collect(Collectors.toList());
+        } else {
+            // Return records matching the GUID
+            return records.stream()
+                    .filter(r -> r.getInstrumentGuid() != null && r.getInstrumentGuid().equals(instrumentGuid))
+                    .collect(Collectors.toList());
+        }
     }
     
     /**
@@ -201,7 +210,12 @@ public class PricingService {
      * Gets the index of a record in the list
      */
     public int getRecordIndex(PricingRecord record) {
-        return records.indexOf(record);
+        for (int i = 0; i < records.size(); i++) {
+            if (records.get(i) == record) { // reference equality preserves actual index
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**
@@ -311,6 +325,8 @@ public class PricingService {
             PricingRecord record = records.get(i);
             if (record.getInstrumentGuid() != null && record.getInstrumentGuid().equals(instrumentGuid)) {
                 records.remove(i);
+                // Re-validate all records to clear any duplicate flags
+                validator.validateAllRecords(records);
                 // Regenerate report
                 currentReport = generateReport();
                 logger.info("Record {} (primary key) deleted successfully", instrumentGuid);
@@ -453,6 +469,8 @@ public class PricingService {
     public boolean deleteRecordByIndex(int index) {
         if (index >= 0 && index < records.size()) {
             records.remove(index);
+            // Re-validate all records to clear any duplicate flags
+            validator.validateAllRecords(records);
             
             // Regenerate report
             currentReport = generateReport();

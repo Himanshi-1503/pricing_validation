@@ -95,13 +95,22 @@ public class ReportGenerator {
             reportContent.append("INVALID RECORDS DETAILS\n");
             reportContent.append("-".repeat(80)).append("\n");
             for (PricingRecord record : report.getInvalidRecordsList()) {
-                reportContent.append(String.format("Instrument GUID: %s\n", record.getInstrumentGuid()));
-                reportContent.append(String.format("  Trade Date:    %s\n", record.getTradeDate()));
-                reportContent.append(String.format("  Price:         %s\n", 
-                    record.getPrice() != null ? record.getPrice() : "MISSING/INVALID"));
-                reportContent.append(String.format("  Exchange:      %s\n", record.getExchange()));
-                reportContent.append(String.format("  Product Type:  %s\n", record.getProductType()));
-                reportContent.append(String.format("  Error:         %s\n", record.getValidationError()));
+                String guid = record.getInstrumentGuid() != null && !record.getInstrumentGuid().trim().isEmpty()
+                    ? record.getInstrumentGuid() : "";
+                String date = record.getTradeDate() != null ? record.getTradeDate().toString() : "";
+                String price = record.getPrice() != null ? String.valueOf(record.getPrice()) : "";
+                String exchange = record.getExchange() != null && !record.getExchange().trim().isEmpty()
+                    ? record.getExchange() : "";
+                String productType = record.getProductType() != null && !record.getProductType().trim().isEmpty()
+                    ? record.getProductType() : "";
+                String error = record.getValidationError() != null ? record.getValidationError() : "";
+                
+                reportContent.append(String.format("Instrument GUID: %s\n", guid));
+                reportContent.append(String.format("  Trade Date:    %s\n", date));
+                reportContent.append(String.format("  Price:         %s\n", price));
+                reportContent.append(String.format("  Exchange:      %s\n", exchange));
+                reportContent.append(String.format("  Product Type:  %s\n", productType));
+                reportContent.append(String.format("  Error:         %s\n", error));
                 reportContent.append("\n");
             }
         }

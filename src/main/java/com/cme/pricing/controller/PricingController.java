@@ -32,6 +32,31 @@ public class PricingController {
     private ReportGenerator reportGenerator;
 
     /**
+     * Helper method to format price value - shows invalid values (like "INVALID") but blank for null/missing
+     */
+    private Object formatPriceValue(PricingRecord record) {
+        if (record.getPrice() != null) {
+            return record.getPrice();
+        }
+        // First check originalPriceValue (stored by parser for invalid formats)
+        if (record.getOriginalPriceValue() != null && !record.getOriginalPriceValue().trim().isEmpty()) {
+            return record.getOriginalPriceValue();
+        }
+        // Fallback: extract from validation error message
+        String error = record.getValidationError();
+        if (error != null && error.contains("Invalid price format: ")) {
+            int startIndex = error.indexOf("Invalid price format: ") + "Invalid price format: ".length();
+            int endIndex = error.indexOf(";", startIndex);
+            if (endIndex == -1) {
+                return error.substring(startIndex).trim();
+            }
+            return error.substring(startIndex, endIndex).trim();
+        }
+        // Actually missing/null - return empty string
+        return "";
+    }
+
+    /**
      * Root endpoint - provides API information
      * GET /
      */
@@ -156,22 +181,7 @@ public class PricingController {
                             ? record.getInstrumentGuid()
                             : "");
             recordInfo.put("tradeDate", record.getTradeDate() != null ? record.getTradeDate().toString() : "");
-            // Format price: show invalid values, blank for missing
-            Object price;
-            if (record.getPrice() != null) {
-                price = record.getPrice();
-            } else {
-                String error = record.getValidationError();
-                if (error != null && error.contains("Invalid price format: ")) {
-                    int startIndex = error.indexOf("Invalid price format: ") + "Invalid price format: ".length();
-                    int endIndex = error.indexOf(";", startIndex);
-                    price = (endIndex == -1) ? error.substring(startIndex).trim()
-                            : error.substring(startIndex, endIndex).trim();
-                } else {
-                    price = "";
-                }
-            }
-            recordInfo.put("price", price);
+            recordInfo.put("price", formatPriceValue(record));
             recordInfo.put("exchange",
                     record.getExchange() != null && !record.getExchange().trim().isEmpty() ? record.getExchange() : "");
             recordInfo.put("productType",
@@ -192,22 +202,7 @@ public class PricingController {
                                 ? record.getInstrumentGuid()
                                 : "");
                 dupInfo.put("tradeDate", record.getTradeDate() != null ? record.getTradeDate().toString() : "");
-                // Format price: show invalid values, blank for missing
-                Object price;
-                if (record.getPrice() != null) {
-                    price = record.getPrice();
-                } else {
-                    String error = record.getValidationError();
-                    if (error != null && error.contains("Invalid price format: ")) {
-                        int startIndex = error.indexOf("Invalid price format: ") + "Invalid price format: ".length();
-                        int endIndex = error.indexOf(";", startIndex);
-                        price = (endIndex == -1) ? error.substring(startIndex).trim()
-                                : error.substring(startIndex, endIndex).trim();
-                    } else {
-                        price = "";
-                    }
-                }
-                dupInfo.put("price", price != null ? price : "");
+                dupInfo.put("price", formatPriceValue(record));
                 dupInfo.put("exchange",
                         record.getExchange() != null && !record.getExchange().trim().isEmpty() ? record.getExchange()
                                 : "");
@@ -366,28 +361,12 @@ public class PricingController {
         for (PricingRecord record : report.getAllRecords()) {
             Map<String, Object> recordRow = new java.util.LinkedHashMap<>();
 
-            // Format price: show invalid values, blank for missing
-            Object price;
-            if (record.getPrice() != null) {
-                price = record.getPrice();
-            } else {
-                String error = record.getValidationError();
-                if (error != null && error.contains("Invalid price format: ")) {
-                    int startIndex = error.indexOf("Invalid price format: ") + "Invalid price format: ".length();
-                    int endIndex = error.indexOf(";", startIndex);
-                    price = (endIndex == -1) ? error.substring(startIndex).trim()
-                            : error.substring(startIndex, endIndex).trim();
-                } else {
-                    price = "";
-                }
-            }
-
             recordRow.put("guid",
                     record.getInstrumentGuid() != null && !record.getInstrumentGuid().trim().isEmpty()
                             ? record.getInstrumentGuid()
                             : "");
             recordRow.put("date", record.getTradeDate() != null ? record.getTradeDate().toString() : "");
-            recordRow.put("price", price != null ? price : "");
+            recordRow.put("price", formatPriceValue(record));
             recordRow.put("exchange",
                     record.getExchange() != null && !record.getExchange().trim().isEmpty() ? record.getExchange() : "");
             recordRow.put("product",
@@ -484,12 +463,11 @@ public class PricingController {
 
         // Format records matching CLI format with index information
         List<Map<String, Object>> formattedRecords = new java.util.ArrayList<>();
-        List<PricingRecord> allRecords = pricingService.getAllRecords(); // Get unsorted list for index lookup
         
         for (int i = 0; i < records.size(); i++) {
             PricingRecord record = records.get(i);
             // Find the actual index in the unsorted list (original position)
-            int actualIndex = allRecords.indexOf(record);
+            int actualIndex = pricingService.getRecordIndex(record);
             if (actualIndex == -1) {
                 actualIndex = i; // Fallback to sorted position if not found
             }
@@ -497,29 +475,12 @@ public class PricingController {
             Map<String, Object> formatted = new java.util.LinkedHashMap<>();
             formatted.put("index", actualIndex);
 
-            // Format price: show invalid values, null for missing
-            Object price;
-            if (record.getPrice() != null) {
-                price = record.getPrice();
-            } else {
-                // Check if it's an invalid value
-                String error = record.getValidationError();
-                if (error != null && error.contains("Invalid price format: ")) {
-                    int startIndex = error.indexOf("Invalid price format: ") + "Invalid price format: ".length();
-                    int endIndex = error.indexOf(";", startIndex);
-                    price = (endIndex == -1) ? error.substring(startIndex).trim()
-                            : error.substring(startIndex, endIndex).trim();
-                } else {
-                    price = null;
-                }
-            }
-
             formatted.put("instrumentGuid",
                     record.getInstrumentGuid() != null && !record.getInstrumentGuid().trim().isEmpty()
                             ? record.getInstrumentGuid()
                             : "");
             formatted.put("tradeDate", record.getTradeDate() != null ? record.getTradeDate().toString() : "");
-            formatted.put("price", price != null ? price : "");
+            formatted.put("price", formatPriceValue(record));
             formatted.put("exchange",
                     record.getExchange() != null && !record.getExchange().trim().isEmpty() ? record.getExchange() : "");
             formatted.put("productType",
@@ -545,6 +506,9 @@ public class PricingController {
     @GetMapping("/records/{instrumentGuid}")
     public ResponseEntity<?> getRecord(@PathVariable String instrumentGuid,
             @RequestParam(required = false) Integer index) {
+        boolean isEmptyPlaceholder = instrumentGuid != null && instrumentGuid.equalsIgnoreCase("EMPTY");
+        String normalizedGuid = isEmptyPlaceholder ? "" : instrumentGuid;
+
         // If index is provided, use it directly (for null GUIDs or duplicates)
         if (index != null) {
             Optional<PricingRecord> record = pricingService.getRecordByIndex(index);
@@ -560,22 +524,7 @@ public class PricingController {
                     r.getInstrumentGuid() != null && !r.getInstrumentGuid().trim().isEmpty() ? r.getInstrumentGuid()
                             : "");
             response.put("tradeDate", r.getTradeDate() != null ? r.getTradeDate().toString() : "");
-            // Format price: show invalid values, blank for missing
-            Object price;
-            if (r.getPrice() != null) {
-                price = r.getPrice();
-            } else {
-                String error = r.getValidationError();
-                if (error != null && error.contains("Invalid price format: ")) {
-                    int startIndex = error.indexOf("Invalid price format: ") + "Invalid price format: ".length();
-                    int endIndex = error.indexOf(";", startIndex);
-                    price = (endIndex == -1) ? error.substring(startIndex).trim()
-                            : error.substring(startIndex, endIndex).trim();
-                } else {
-                    price = r.getOriginalPriceValue() != null ? r.getOriginalPriceValue() : "";
-                }
-            }
-            response.put("price", price != null ? price : "");
+            response.put("price", formatPriceValue(r));
             response.put("exchange",
                     r.getExchange() != null && !r.getExchange().trim().isEmpty() ? r.getExchange() : "");
             response.put("productType",
@@ -588,11 +537,13 @@ public class PricingController {
         }
 
         // If no index provided, search by GUID
-        List<PricingRecord> recordsWithGuid = pricingService.getAllRecordsByGuid(instrumentGuid);
+        List<PricingRecord> recordsWithGuid = pricingService.getAllRecordsByGuid(normalizedGuid);
 
         if (recordsWithGuid.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Record not found for GUID: " + instrumentGuid));
+            String message = isEmptyPlaceholder
+                    ? "Record not found for empty/null GUID."
+                    : "Record not found for GUID: " + instrumentGuid;
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", message));
         }
 
         // If multiple records exist and no index specified, return list for user to
@@ -600,31 +551,21 @@ public class PricingController {
         if (recordsWithGuid.size() > 1 && index == null) {
             List<Map<String, Object>> recordsInfo = new java.util.ArrayList<>();
             List<PricingRecord> allRecords = pricingService.getAllRecords();
+            String guidDisplay = isEmptyPlaceholder ? "(empty)" : instrumentGuid;
 
             for (int i = 0; i < allRecords.size(); i++) {
                 PricingRecord record = allRecords.get(i);
-                if (record.getInstrumentGuid() != null && record.getInstrumentGuid().equals(instrumentGuid)) {
+                String recordGuid = record.getInstrumentGuid();
+                boolean matches = isEmptyPlaceholder
+                        ? (recordGuid == null || recordGuid.trim().isEmpty())
+                        : (recordGuid != null && recordGuid.equals(instrumentGuid));
+                if (matches) {
                     Map<String, Object> recordInfo = new java.util.LinkedHashMap<>();
                     recordInfo.put("index", i);
-                    recordInfo.put("instrumentGuid", record.getInstrumentGuid());
+                    recordInfo.put("instrumentGuid",
+                            recordGuid != null && !recordGuid.trim().isEmpty() ? recordGuid : "");
                     recordInfo.put("tradeDate", record.getTradeDate() != null ? record.getTradeDate().toString() : "");
-                    // Format price: show invalid values, blank for missing
-                    Object price;
-                    if (record.getPrice() != null) {
-                        price = record.getPrice();
-                    } else {
-                        String error = record.getValidationError();
-                        if (error != null && error.contains("Invalid price format: ")) {
-                            int startIndex = error.indexOf("Invalid price format: ")
-                                    + "Invalid price format: ".length();
-                            int endIndex = error.indexOf(";", startIndex);
-                            price = (endIndex == -1) ? error.substring(startIndex).trim()
-                                    : error.substring(startIndex, endIndex).trim();
-                        } else {
-                            price = record.getOriginalPriceValue() != null ? record.getOriginalPriceValue() : "";
-                        }
-                    }
-                    recordInfo.put("price", price != null ? price : "");
+                    recordInfo.put("price", formatPriceValue(record));
                     recordInfo.put("exchange",
                             record.getExchange() != null && !record.getExchange().trim().isEmpty()
                                     ? record.getExchange()
@@ -643,7 +584,7 @@ public class PricingController {
 
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(Map.of(
-                            "message", "Multiple records found with GUID: " + instrumentGuid,
+                            "message", "Multiple records found with GUID: " + guidDisplay,
                             "count", recordsWithGuid.size(),
                             "records", recordsInfo,
                             "instruction", "Use GET /api/pricing/records/" + instrumentGuid
@@ -658,8 +599,11 @@ public class PricingController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "Record not found at index: " + index));
             }
+        } else if (isEmptyPlaceholder) {
+            // Safe because duplicates already handled above
+            record = Optional.of(recordsWithGuid.get(0));
         } else {
-            record = pricingService.getRecordByGuid(instrumentGuid);
+            record = pricingService.getRecordByGuid(normalizedGuid);
         }
         
         if (record.isPresent()) {
@@ -669,22 +613,7 @@ public class PricingController {
                     r.getInstrumentGuid() != null && !r.getInstrumentGuid().trim().isEmpty() ? r.getInstrumentGuid()
                             : "");
             response.put("tradeDate", r.getTradeDate() != null ? r.getTradeDate().toString() : "");
-            // Format price: show invalid values, blank for missing
-            Object price;
-            if (r.getPrice() != null) {
-                price = r.getPrice();
-            } else {
-                String error = r.getValidationError();
-                if (error != null && error.contains("Invalid price format: ")) {
-                    int startIndex = error.indexOf("Invalid price format: ") + "Invalid price format: ".length();
-                    int endIndex = error.indexOf(";", startIndex);
-                    price = (endIndex == -1) ? error.substring(startIndex).trim()
-                            : error.substring(startIndex, endIndex).trim();
-                } else {
-                    price = "";
-                }
-            }
-            response.put("price", price != null ? price : "");
+            response.put("price", formatPriceValue(r));
             response.put("exchange",
                     r.getExchange() != null && !r.getExchange().trim().isEmpty() ? r.getExchange() : "");
             response.put("productType",
@@ -715,6 +644,9 @@ public class PricingController {
                     .body(Map.of("error", "Price must be greater than zero"));
         }
 
+        boolean isEmptyPlaceholder = instrumentGuid != null && instrumentGuid.equalsIgnoreCase("EMPTY");
+        String normalizedGuid = isEmptyPlaceholder ? "" : instrumentGuid;
+
         // If index is provided, verify GUID matches before updating
         if (index != null) {
             Optional<PricingRecord> recordOpt = pricingService.getRecordByIndex(index);
@@ -728,10 +660,10 @@ public class PricingController {
 
             // For null/empty GUIDs, allow "EMPTY" as placeholder
             boolean isNullGuid = (recordGuid == null || recordGuid.trim().isEmpty());
-            boolean isPlaceholder = "EMPTY".equalsIgnoreCase(instrumentGuid);
+            boolean isPlaceholder = isEmptyPlaceholder;
 
             // Verify GUID matches (unless it's a placeholder for null GUID)
-            if (!isNullGuid && !isPlaceholder && !recordGuid.equals(instrumentGuid)) {
+            if (!isNullGuid && !isPlaceholder && recordGuid != null && !recordGuid.equals(instrumentGuid)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("error",
                                 "GUID mismatch: Record at index " + index + " has GUID '" + recordGuid +
@@ -778,12 +710,19 @@ public class PricingController {
             return ResponseEntity.ok(response);
         }
 
+        if (isEmptyPlaceholder) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error",
+                    "Instrument GUID is empty/null. Specify the target record using the ?index parameter (use GET /api/pricing/records for indices)."));
+        }
+
         // Check if there are multiple records with same GUID
-        List<PricingRecord> recordsWithGuid = pricingService.getAllRecordsByGuid(instrumentGuid);
+        List<PricingRecord> recordsWithGuid = pricingService.getAllRecordsByGuid(normalizedGuid);
+        String guidDisplay = isEmptyPlaceholder ? "(empty)" : instrumentGuid;
 
         if (recordsWithGuid.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Record not found for instrument GUID: " + instrumentGuid));
+                    .body(Map.of("error", "Record not found for instrument GUID: " + guidDisplay));
         }
 
         // If multiple records exist (duplicates), index parameter is REQUIRED
@@ -793,16 +732,17 @@ public class PricingController {
 
             for (int i = 0; i < allRecords.size(); i++) {
                 PricingRecord record = allRecords.get(i);
-                if (record.getInstrumentGuid() != null && record.getInstrumentGuid().equals(instrumentGuid)) {
+                String recordGuid = record.getInstrumentGuid();
+                boolean matches = recordGuid != null && recordGuid.equals(instrumentGuid);
+                if (matches) {
                     Map<String, Object> recordInfo = new java.util.LinkedHashMap<>();
                     recordInfo.put("index", i);
-                    recordInfo.put("instrumentGuid", record.getInstrumentGuid());
-                    recordInfo.put("tradeDate", record.getTradeDate());
-                    Object displayPrice = record.getPrice() != null ? record.getPrice()
-                            : (record.getOriginalPriceValue() != null ? record.getOriginalPriceValue() : null);
-                    recordInfo.put("price", displayPrice);
-                    recordInfo.put("exchange", record.getExchange());
-                    recordInfo.put("productType", record.getProductType());
+                    recordInfo.put("instrumentGuid",
+                            recordGuid != null && !recordGuid.trim().isEmpty() ? recordGuid : "");
+                    recordInfo.put("tradeDate", record.getTradeDate() != null ? record.getTradeDate().toString() : "");
+                    recordInfo.put("price", formatPriceValue(record));
+                    recordInfo.put("exchange", record.getExchange() != null && !record.getExchange().trim().isEmpty() ? record.getExchange() : "");
+                    recordInfo.put("productType", record.getProductType() != null && !record.getProductType().trim().isEmpty() ? record.getProductType() : "");
                     recordInfo.put("status", record.isValid() ? "VALID" : "INVALID");
                     if (record.getValidationError() != null) {
                         recordInfo.put("validationError", record.getValidationError());
@@ -813,32 +753,34 @@ public class PricingController {
 
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of(
-                            "error", "Multiple records found with GUID (primary key): " + instrumentGuid + ". Index parameter is required.",
-                            "message", "Duplicate GUID detected. Since GUID is the primary key, you must specify which record to update using the ?index parameter.",
+                            "error",
+                            "Multiple records found with GUID (primary key): " + guidDisplay
+                                    + ". Index parameter is required.",
+                            "message",
+                            "Duplicate GUID detected. Since GUID is the primary key, you must specify which record to update using the ?index parameter.",
                             "count", recordsWithGuid.size(),
                             "records", recordsInfo,
                             "instruction", "Use PUT /api/pricing/records/" + instrumentGuid
-                                    + "?index={index} to update a specific record. Example: PUT /api/pricing/records/" + instrumentGuid + "?index=0"));
+                                    + "?index={index} to update a specific record. Example: PUT /api/pricing/records/"
+                                    + instrumentGuid + "?index=0"));
         }
 
         // Update first record with this GUID (primary key - should be unique)
         // Get the index before update
-        Optional<PricingRecord> recordBeforeUpdate = pricingService.getRecordByGuid(instrumentGuid);
+        Optional<PricingRecord> recordBeforeUpdate = pricingService.getRecordByGuid(normalizedGuid);
         int indexBeforeUpdate = -1;
         if (recordBeforeUpdate.isPresent()) {
-            List<PricingRecord> allRecords = pricingService.getAllRecords();
-            indexBeforeUpdate = allRecords.indexOf(recordBeforeUpdate.get());
+            indexBeforeUpdate = pricingService.getRecordIndex(recordBeforeUpdate.get());
         }
         
-        boolean updated = pricingService.updateRecord(instrumentGuid, updatedRecord);
+        boolean updated = pricingService.updateRecord(normalizedGuid, updatedRecord);
         
         if (updated) {
-            Optional<PricingRecord> updatedRecordOpt = pricingService.getRecordByGuid(instrumentGuid);
+            Optional<PricingRecord> updatedRecordOpt = pricingService.getRecordByGuid(normalizedGuid);
             // Get index after update (should be same since we're updating in place)
             int indexAfterUpdate = -1;
             if (updatedRecordOpt.isPresent()) {
-                List<PricingRecord> allRecords = pricingService.getAllRecords();
-                indexAfterUpdate = allRecords.indexOf(updatedRecordOpt.get());
+                indexAfterUpdate = pricingService.getRecordIndex(updatedRecordOpt.get());
             }
 
             Map<String, Object> response = new java.util.LinkedHashMap<>();
@@ -856,7 +798,7 @@ public class PricingController {
                         r.getInstrumentGuid() != null && !r.getInstrumentGuid().trim().isEmpty() ? r.getInstrumentGuid()
                                 : "");
                 record.put("tradeDate", r.getTradeDate() != null ? r.getTradeDate().toString() : "");
-                record.put("price", r.getPrice() != null ? r.getPrice() : "");
+                record.put("price", formatPriceValue(r));
                 record.put("exchange",
                         r.getExchange() != null && !r.getExchange().trim().isEmpty() ? r.getExchange() : "");
                 record.put("productType",
@@ -879,6 +821,9 @@ public class PricingController {
     @DeleteMapping("/records/{instrumentGuid}")
     public ResponseEntity<?> deleteRecord(@PathVariable String instrumentGuid,
             @RequestParam(required = false) Integer index) {
+        boolean isEmptyPlaceholder = instrumentGuid != null && instrumentGuid.equalsIgnoreCase("EMPTY");
+        String normalizedGuid = isEmptyPlaceholder ? "" : instrumentGuid;
+
         // If index is provided, verify GUID matches before deleting
         if (index != null) {
             Optional<PricingRecord> recordOpt = pricingService.getRecordByIndex(index);
@@ -892,10 +837,10 @@ public class PricingController {
 
             // For null/empty GUIDs, allow "EMPTY" as placeholder
             boolean isNullGuid = (recordGuid == null || recordGuid.trim().isEmpty());
-            boolean isPlaceholder = "EMPTY".equalsIgnoreCase(instrumentGuid);
+            boolean isPlaceholder = isEmptyPlaceholder;
 
             // Verify GUID matches (unless it's a placeholder for null GUID)
-            if (!isNullGuid && !isPlaceholder && !recordGuid.equals(instrumentGuid)) {
+            if (!isNullGuid && !isPlaceholder && recordGuid != null && !recordGuid.equals(instrumentGuid)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("error",
                                 "GUID mismatch: Record at index " + index + " has GUID '" + recordGuid +
@@ -915,7 +860,8 @@ public class PricingController {
             // GUID matches (or placeholder used), proceed with deletion
             // Get record details before deletion
             PricingRecord recordToDelete = recordOpt.get();
-            String deletedGuid = recordToDelete.getInstrumentGuid() != null ? recordToDelete.getInstrumentGuid() : "EMPTY";
+            String deletedGuid = recordToDelete.getInstrumentGuid() != null ? recordToDelete.getInstrumentGuid()
+                    : "EMPTY";
             
             boolean deleted = pricingService.deleteRecordByIndex(index);
             if (!deleted) {
@@ -930,12 +876,19 @@ public class PricingController {
             return ResponseEntity.ok(response);
         }
 
+        if (isEmptyPlaceholder) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error",
+                            "Instrument GUID is empty/null. Specify the record index using the ?index parameter (use GET /api/pricing/records for indices)."));
+        }
+
         // Check if there are multiple records with same GUID
-        List<PricingRecord> recordsWithGuid = pricingService.getAllRecordsByGuid(instrumentGuid);
+        List<PricingRecord> recordsWithGuid = pricingService.getAllRecordsByGuid(normalizedGuid);
+        String guidDisplay = isEmptyPlaceholder ? "(empty)" : instrumentGuid;
 
         if (recordsWithGuid.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Record not found for instrument GUID: " + instrumentGuid));
+                    .body(Map.of("error", "Record not found for instrument GUID: " + guidDisplay));
         }
 
         // If multiple records exist (duplicates), index parameter is REQUIRED
@@ -949,22 +902,22 @@ public class PricingController {
                     Map<String, Object> recordInfo = new java.util.LinkedHashMap<>();
                     recordInfo.put("index", i);
                     recordInfo.put("instrumentGuid", record.getInstrumentGuid());
-                    recordInfo.put("tradeDate", record.getTradeDate());
-                    // Use display price (shows original invalid value if applicable)
-                    Object displayPrice = record.getPrice() != null ? record.getPrice()
-                            : (record.getOriginalPriceValue() != null ? record.getOriginalPriceValue() : null);
-                    recordInfo.put("price", displayPrice);
-                    recordInfo.put("exchange", record.getExchange());
-                    recordInfo.put("productType", record.getProductType());
+                    recordInfo.put("tradeDate", record.getTradeDate() != null ? record.getTradeDate().toString() : "");
+                    recordInfo.put("price", formatPriceValue(record));
+                    recordInfo.put("exchange", record.getExchange() != null && !record.getExchange().trim().isEmpty() ? record.getExchange() : "");
+                    recordInfo.put("productType", record.getProductType() != null && !record.getProductType().trim().isEmpty() ? record.getProductType() : "");
                     recordInfo.put("valid", record.isValid());
-                    recordInfo.put("validationError", record.getValidationError());
+                    recordInfo.put("validationError", record.getValidationError() != null ? record.getValidationError() : "");
                     recordsInfo.add(recordInfo);
                 }
             }
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of(
-                            "error", "Multiple records found with GUID (primary key): " + instrumentGuid + ". Index parameter is required.",
-                            "message", "Duplicate GUID detected. Since GUID is the primary key, you must specify which record to delete using the ?index parameter.",
+                            "error",
+                            "Multiple records found with GUID (primary key): " + guidDisplay
+                                    + ". Index parameter is required.",
+                            "message",
+                            "Duplicate GUID detected. Since GUID is the primary key, you must specify which record to delete using the ?index parameter.",
                             "count", recordsWithGuid.size(),
                             "records", recordsInfo,
                             "instruction", "Use DELETE /api/pricing/records/" + instrumentGuid
@@ -973,24 +926,23 @@ public class PricingController {
 
         // Delete first record with this GUID (primary key - should be unique)
         // Get the index before deletion
-        Optional<PricingRecord> recordBeforeDelete = pricingService.getRecordByGuid(instrumentGuid);
+        Optional<PricingRecord> recordBeforeDelete = pricingService.getRecordByGuid(normalizedGuid);
         int indexBeforeDelete = -1;
         if (recordBeforeDelete.isPresent()) {
-            List<PricingRecord> allRecords = pricingService.getAllRecords();
-            indexBeforeDelete = allRecords.indexOf(recordBeforeDelete.get());
+            indexBeforeDelete = pricingService.getRecordIndex(recordBeforeDelete.get());
         }
         
-        boolean deleted = pricingService.deleteRecord(instrumentGuid);
+        boolean deleted = pricingService.deleteRecord(normalizedGuid);
         
         if (deleted) {
             Map<String, Object> response = new java.util.LinkedHashMap<>();
             response.put("message", "Record deleted successfully!");
             response.put("deletedIndex", indexBeforeDelete);
-            response.put("deletedGuid", instrumentGuid);
+            response.put("deletedGuid", guidDisplay);
             return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Record not found for GUID (primary key): " + instrumentGuid));
+                    .body(Map.of("error", "Record not found for GUID (primary key): " + guidDisplay));
         }
     }
 
@@ -1009,6 +961,9 @@ public class PricingController {
                     .body(Map.of("error", "Price must be greater than zero"));
         }
 
+        boolean isEmptyPlaceholder = instrumentGuid != null && instrumentGuid.equalsIgnoreCase("EMPTY");
+        String normalizedGuid = isEmptyPlaceholder ? "" : instrumentGuid;
+
         // If index is provided, verify GUID matches before correcting
         if (index != null) {
             Optional<PricingRecord> recordOpt = pricingService.getRecordByIndex(index);
@@ -1022,10 +977,10 @@ public class PricingController {
 
             // For null/empty GUIDs, allow "EMPTY" as placeholder
             boolean isNullGuid = (recordGuid == null || recordGuid.trim().isEmpty());
-            boolean isPlaceholder = "EMPTY".equalsIgnoreCase(instrumentGuid);
+            boolean isPlaceholder = isEmptyPlaceholder;
 
             // Verify GUID matches (unless it's a placeholder for null GUID)
-            if (!isNullGuid && !isPlaceholder && !recordGuid.equals(instrumentGuid)) {
+            if (!isNullGuid && !isPlaceholder && recordGuid != null && !recordGuid.equals(instrumentGuid)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("error",
                                 "GUID mismatch: Record at index " + index + " has GUID '" + recordGuid +
@@ -1078,12 +1033,19 @@ public class PricingController {
             return ResponseEntity.ok(response);
         }
 
+        if (isEmptyPlaceholder) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error",
+                            "Instrument GUID is empty/null. Specify the record index using the ?index parameter (use GET /api/pricing/records for indices)."));
+        }
+
         // Check if there are multiple records with same GUID
-        List<PricingRecord> recordsWithGuid = pricingService.getAllRecordsByGuid(instrumentGuid);
+        List<PricingRecord> recordsWithGuid = pricingService.getAllRecordsByGuid(normalizedGuid);
+        String guidDisplay = isEmptyPlaceholder ? "(empty)" : instrumentGuid;
 
         if (recordsWithGuid.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Record not found for GUID: " + instrumentGuid));
+                    .body(Map.of("error", "Record not found for GUID: " + guidDisplay));
         }
 
         // If multiple records exist (duplicates), index parameter is REQUIRED
@@ -1099,12 +1061,10 @@ public class PricingController {
                     Map<String, Object> recordInfo = new java.util.LinkedHashMap<>();
                     recordInfo.put("index", i);
                     recordInfo.put("instrumentGuid", record.getInstrumentGuid());
-                    recordInfo.put("tradeDate", record.getTradeDate());
-                    Object displayPrice = record.getPrice() != null ? record.getPrice()
-                            : (record.getOriginalPriceValue() != null ? record.getOriginalPriceValue() : null);
-                    recordInfo.put("price", displayPrice);
-                    recordInfo.put("exchange", record.getExchange());
-                    recordInfo.put("productType", record.getProductType());
+                    recordInfo.put("tradeDate", record.getTradeDate() != null ? record.getTradeDate().toString() : "");
+                    recordInfo.put("price", formatPriceValue(record));
+                    recordInfo.put("exchange", record.getExchange() != null && !record.getExchange().trim().isEmpty() ? record.getExchange() : "");
+                    recordInfo.put("productType", record.getProductType() != null && !record.getProductType().trim().isEmpty() ? record.getProductType() : "");
                     recordInfo.put("status", record.isValid() ? "VALID" : "INVALID");
                     if (record.getValidationError() != null) {
                         recordInfo.put("validationError", record.getValidationError());
@@ -1115,12 +1075,16 @@ public class PricingController {
 
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of(
-                            "error", "Multiple records found with GUID (primary key): " + instrumentGuid + ". Index parameter is required.",
-                            "message", "Duplicate GUID detected. Since GUID is the primary key, you must specify which record to correct using the ?index parameter.",
+                            "error",
+                            "Multiple records found with GUID (primary key): " + guidDisplay
+                                    + ". Index parameter is required.",
+                            "message",
+                            "Duplicate GUID detected. Since GUID is the primary key, you must specify which record to correct using the ?index parameter.",
                             "count", recordsWithGuid.size(),
                             "records", recordsInfo,
                             "instruction", "Use POST /api/pricing/records/" + instrumentGuid
-                                    + "/correct?index={index} to correct a specific record. Example: POST /api/pricing/records/" + instrumentGuid + "/correct?index=0"));
+                                    + "/correct?index={index} to correct a specific record. Example: POST /api/pricing/records/"
+                                    + instrumentGuid + "/correct?index=0"));
         }
 
         // Correct by index if specified, otherwise correct first match
@@ -1141,22 +1105,13 @@ public class PricingController {
                 }
             }
         } else {
-        // Correct first record with this GUID (primary key - should be unique)
-        // Get the index before correction
-        Optional<PricingRecord> recordBeforeCorrect = pricingService.getRecordByGuid(instrumentGuid);
-        int indexBeforeCorrect = -1;
-        if (recordBeforeCorrect.isPresent()) {
-            List<PricingRecord> allRecords = pricingService.getAllRecords();
-            indexBeforeCorrect = allRecords.indexOf(recordBeforeCorrect.get());
-        }
-        
-        corrected = pricingService.correctRecord(instrumentGuid, correction);
+            corrected = pricingService.correctRecord(normalizedGuid, correction);
         if (!corrected) {
             // Check if record exists
-            Optional<PricingRecord> record = pricingService.getRecordByGuid(instrumentGuid);
+                Optional<PricingRecord> record = pricingService.getRecordByGuid(normalizedGuid);
             if (!record.isPresent()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("error", "Record not found for GUID (primary key): " + instrumentGuid));
+                            .body(Map.of("error", "Record not found for GUID (primary key): " + guidDisplay));
                 } else {
                     // Correction failed for another reason (e.g., duplicate GUID)
                     return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -1173,10 +1128,9 @@ public class PricingController {
                 updatedRecord = pricingService.getRecordByIndex(index);
                 finalIndex = index;
             } else {
-                updatedRecord = pricingService.getRecordByGuid(instrumentGuid);
+                updatedRecord = pricingService.getRecordByGuid(normalizedGuid);
                 if (updatedRecord.isPresent()) {
-                    List<PricingRecord> allRecords = pricingService.getAllRecords();
-                    finalIndex = allRecords.indexOf(updatedRecord.get());
+                    finalIndex = pricingService.getRecordIndex(updatedRecord.get());
                 }
             }
 
@@ -1198,7 +1152,7 @@ public class PricingController {
                         r.getInstrumentGuid() != null && !r.getInstrumentGuid().trim().isEmpty() ? r.getInstrumentGuid()
                                 : "");
                 record.put("tradeDate", r.getTradeDate() != null ? r.getTradeDate().toString() : "");
-                record.put("price", r.getPrice() != null ? r.getPrice() : "");
+                record.put("price", formatPriceValue(r));
                 record.put("exchange",
                         r.getExchange() != null && !r.getExchange().trim().isEmpty() ? r.getExchange() : "");
                 record.put("productType",
